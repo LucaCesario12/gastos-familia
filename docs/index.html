@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <title>Gastos</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icono.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+
+  <header class="cabecera">
+    <span id="tituloVista" class="etiqueta">Nuevo gasto</span>
+    <div class="cabecera-der">
+      <button id="btnPersona" type="button" class="persona oculto" aria-label="Cambiar persona"><span id="personaTxt">Quién</span></button>
+      <button id="btnSync" type="button" class="redondo" aria-label="Sincronizar"><span data-icono="refrescar"></span></button>
+    </div>
+  </header>
+
+  <div id="bannerVersion" class="banner-version oculto">
+    <span>Hay una versión nueva</span>
+    <button id="btnActualizar" type="button">Actualizar</button>
+  </div>
+
+  <div id="aviso" class="aviso oculto"><span id="avisoTxt"></span></div>
+
+  <main class="principal">
+
+    <!-- CARGAR -->
+    <section id="vistaCargar">
+      <div class="monto-bloque">
+        <div class="etiqueta">Monto</div>
+        <div id="montoVista" class="monto vacio" aria-live="polite"><span class="monto-signo">$</span><span id="montoTxt">0</span></div>
+      </div>
+
+      <div id="pendientesCaja" class="oculto">
+        <div class="fila-etiquetas">
+          <span id="pendientesCuenta" class="etiqueta">Faltan este mes</span>
+          <span class="etiqueta">Mantené para omitir</span>
+        </div>
+        <div id="pendientes" class="grilla3"></div>
+        <div id="omitirBarra" class="omitir oculto">
+          <span id="omitirTxt"></span>
+          <button id="btnOmitirNo" type="button" class="chip">Cancelar</button>
+          <button id="btnOmitirSi" type="button" class="chip activo">Omitir</button>
+        </div>
+      </div>
+
+      <div class="fila-detalle">
+        <input id="detalle" class="campo" type="text" maxlength="120" autocomplete="off" enterkeyhint="done" placeholder="Detalle (opcional)" aria-label="Detalle">
+        <label id="botonFecha" class="boton-fecha" aria-label="Elegir otra fecha">
+          <span data-icono="calendario"></span>
+          <input id="fecha" type="date">
+        </label>
+      </div>
+      <div id="sugerencias" class="grilla3 oculto"></div>
+      <div id="infoFecha" class="info-fecha oculto">
+        <span id="fechaTxt"></span>
+        <button id="btnHoy" type="button">Volver a hoy</button>
+      </div>
+
+      <div class="etiqueta tit">Categoría</div>
+      <div id="selectorGrupo" class="segmento oculto"></div>
+      <div id="chips" class="grilla3"></div>
+
+      <div id="teclado" class="teclado" role="group" aria-label="Teclado numérico"></div>
+    </section>
+
+    <!-- RESUMEN -->
+    <section id="vistaResumen" class="oculto">
+      <div class="mes-bloque">
+        <div class="mes-nav">
+          <button id="mesAnt" type="button" class="flecha" aria-label="Mes anterior" disabled><span data-icono="izquierda"></span></button>
+          <div id="mesLabel" class="etiqueta mes-label">Este mes</div>
+          <button id="mesSig" type="button" class="flecha" aria-label="Mes siguiente" disabled><span data-icono="derecha"></span></button>
+        </div>
+        <div id="total" class="total">$ 0</div>
+        <div id="comparacion" class="comparacion oculto"></div>
+        <button id="btnAgregarMes" type="button" class="pill suave oculto">+ Agregar gasto</button>
+      </div>
+
+      <div class="card">
+        <div class="etiqueta tit">Top categorías</div>
+        <div id="top" class="pila"></div>
+      </div>
+
+      <div id="cardPersonas" class="card oculto">
+        <div class="etiqueta tit">Por persona</div>
+        <div id="porPersona" class="pila"></div>
+      </div>
+
+      <div class="card">
+        <div class="etiqueta tit">Evolución del mes</div>
+        <div id="grafLinea" class="graf-linea"></div>
+      </div>
+
+      <div class="card">
+        <div class="fila-card">
+          <span id="tituloGrupos" class="etiqueta">Por grupo</span>
+          <div id="vistaGrupos" class="segmento oscuro chico">
+            <button type="button" data-ver="grupos" class="activo">Grupos</button>
+            <button type="button" data-ver="categorias">Categorías</button>
+          </div>
+        </div>
+        <div id="panelDona" class="dona-fila">
+          <div id="grafDona"></div>
+          <div id="leyendaDona"></div>
+        </div>
+        <div id="panelBarras" class="oculto">
+          <div id="leyendaGrupos" class="leyenda"></div>
+          <div id="barrasCategorias" class="pila"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div id="tituloLista" class="etiqueta tit">Últimos movimientos</div>
+        <ul id="ultimos" class="lista"></ul>
+        <button id="btnVerTodos" type="button" class="pill suave ancho">Ver todos</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="barraGuardar" class="barra-guardar">
+    <button id="btnDeshacer" type="button" class="pill suave oculto">Deshacer</button>
+    <button id="btnGuardar" type="button" class="pill primario">Guardar</button>
+  </div>
+
+  <nav class="nav">
+    <button type="button" data-vista="cargar" class="tab activa"><span data-icono="mas"></span><span>Cargar</span></button>
+    <button type="button" data-vista="resumen" class="tab"><span data-icono="grafico"></span><span>Resumen</span></button>
+  </nav>
+
+  <!-- Todos los movimientos de un mes -->
+  <div id="panelTodos" class="pantalla oculto">
+    <div class="pantalla-cab">
+      <span id="todosTitulo" class="etiqueta">Movimientos</span>
+      <button id="btnCerrarTodos" type="button" class="flecha" aria-label="Cerrar"><span data-icono="cerrar"></span></button>
+    </div>
+    <div class="card"><ul id="listaTodos" class="lista"></ul></div>
+  </div>
+
+  <!-- Editar o borrar un gasto -->
+  <div id="fondoEdicion" class="oculto">
+    <div id="hojaEdicion">
+      <div class="cab-edicion">
+        <span class="etiqueta">Editar gasto</span>
+        <button id="btnCerrarEdicion" type="button" class="flecha" aria-label="Cerrar"><span data-icono="cerrar"></span></button>
+      </div>
+      <input id="editMonto" class="monto-edit" type="text" inputmode="decimal" autocomplete="off" aria-label="Monto">
+      <div class="etiqueta tit">Detalle</div>
+      <input id="editDetalle" class="campo" type="text" maxlength="120" autocomplete="off" placeholder="Opcional" aria-label="Detalle">
+      <div class="etiqueta tit">Categoría</div>
+      <div id="editGrupo" class="segmento oscuro oculto"></div>
+      <div id="editChips" class="grilla3"></div>
+      <div class="etiqueta tit">Fecha</div>
+      <input id="editFecha" class="campo-fecha" type="date" aria-label="Fecha del gasto">
+      <div id="editQuien" class="etiqueta tit"></div>
+      <div class="acciones">
+        <button id="btnBorrar" type="button" class="pill">Borrar</button>
+        <button id="btnGuardarEdicion" type="button" class="pill">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ¿Quién sos? -->
+  <div id="selector" class="pantalla oculto">
+    <div class="centrado">
+      <div class="etiqueta">Este celular es de</div>
+      <h1 class="titulo-grande">¿Quién sos?</h1>
+      <div id="chipsPersonas"></div>
+      <p class="texto-suave" style="font-size: 14px; margin: 16px 0 0; text-align: center;">Lo podés cambiar después desde arriba</p>
+      <div class="pie-selector">
+        <span id="versionTxt" class="etiqueta"></span>
+        <button id="btnReconfigurar" type="button" class="enlace">Cambiar conexión</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Primera vez: conectar con la planilla -->
+  <div id="configuracion" class="pantalla oculto">
+    <div class="centrado">
+      <div class="etiqueta">Primera vez</div>
+      <h1 class="titulo-grande">Conectar la app</h1>
+      <p class="cfg-pasos">Pegá el código de la familia. Lo recibís por mensaje de quien armó la app.</p>
+      <textarea id="cfgCodigo" class="campo" placeholder="GASTOS1.…" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" aria-label="Código de la familia"></textarea>
+      <details id="cfgManual" class="manual">
+        <summary>Configuración manual</summary>
+        <input id="cfgUrl" class="campo" type="url" placeholder="Dirección (termina en /exec)" autocomplete="off" autocapitalize="off" aria-label="Dirección de la implementación">
+        <input id="cfgClave" class="campo" type="text" placeholder="Clave" autocomplete="off" autocapitalize="off" aria-label="Clave de la familia">
+      </details>
+      <div id="cfgError" class="cfg-error oculto"></div>
+      <button id="btnConectar" type="button" class="pill">Conectar</button>
+      <div class="pie-selector"><button id="btnVolverConfig" type="button" class="enlace oculto">Volver</button></div>
+    </div>
+  </div>
+
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

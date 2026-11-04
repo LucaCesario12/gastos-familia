@@ -1,0 +1,1620 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            fondo: '#0F172A',
+            superficie: '#1E293B',
+            acento: '#38BDF8',
+            apagado: '#64748B'
+          },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+        }
+      }
+    };
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    html, body {
+      background: #0F172A;
+      color: #F1F5F9;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 16px;
+      font-weight: 400;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+    .etiqueta {
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #64748B;
+    }
+    .monto-xl {
+      font-size: 48px;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+    }
+    .pill {
+      border-radius: 9999px;
+      padding: 14px 32px;
+      min-height: 48px;
+      font-size: 16px;
+    }
+    .card {
+      background: #1E293B;
+      border-radius: 32px;
+      padding: 24px;
+    }
+    .chip {
+      border-radius: 9999px;
+      padding: 14px 16px;
+      min-height: 48px;
+      min-width: 0;
+      background: #1E293B;
+      color: #CBD5E1;
+      font-size: 16px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: background-color .15s, color .15s;
+    }
+    .chip.activo { background: #F1F5F9; color: #0F172A; font-weight: 500; }
+    .campo {
+      width: 100%;
+      min-height: 48px;
+      border-radius: 9999px;
+      padding: 0 24px;
+      background: #1E293B;
+      color: #F1F5F9;
+      font-size: 16px;
+      outline: none;
+      border: 1px solid transparent;
+    }
+    .campo:focus { border-color: #334155; }
+    .campo::placeholder { color: #64748B; }
+    #monto {
+      background: transparent;
+      border: 0;
+      outline: none;
+      width: 100%;
+      text-align: center;
+      color: #F1F5F9;
+      caret-color: #38BDF8;
+    }
+    #monto::placeholder { color: #334155; }
+    #btnGuardar {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: transform .1s, opacity .15s, background-color .15s, color .15s;
+    }
+    #btnDeshacer { white-space: nowrap; font-variant-numeric: tabular-nums; }
+    #btnDeshacer:disabled { opacity: .6; }
+    #btnDeshacer.error { color: #FCA5A5; opacity: 1; }
+    #btnGuardar:active { transform: scale(0.98); }
+    #btnGuardar.cargando { opacity: .7; }
+    #btnGuardar.error { background: #1E293B; color: #FCA5A5; }
+    .tab { color: #64748B; }
+    .tab.activa { color: #F1F5F9; }
+    .tab .punto { width: 4px; height: 4px; border-radius: 9999px; background: transparent; }
+    .tab.activa .punto { background: #F1F5F9; }
+    .barra { height: 8px; border-radius: 9999px; background: #334155; overflow: hidden; }
+    .barra > div { height: 100%; border-radius: 9999px; transition: width .4s ease; }
+    .persona-pill {
+      max-width: 160px;
+      height: 32px;
+      padding: 0 16px;
+      border-radius: 9999px;
+      background: #1E293B;
+      color: #CBD5E1;
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 32px;
+    }
+    #selector { background: rgba(15, 23, 42, 0.96); }
+    @keyframes girar { to { transform: rotate(360deg); } }
+    .girando svg { animation: girar .8s linear infinite; }
+    .flecha {
+      width: 48px;
+      height: 48px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #94A3B8;
+    }
+    .flecha:disabled { opacity: .25; }
+    #total { transition: opacity .15s; }
+    #total.cargando { opacity: .35; }
+    /* Campo de fecha visible con forma de chip: se toca directo (en la PC, con el ícono de calendario) */
+    .campo-fecha {
+      min-height: 48px;
+      min-width: 168px;
+      padding: 0 20px;
+      border: 0;
+      border-radius: 9999px;
+      background: #1E293B;
+      color: #CBD5E1;
+      font-family: inherit;
+      font-size: 16px;
+      outline: none;
+      color-scheme: dark;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .campo-fecha::-webkit-date-and-time-value { text-align: left; }
+    .campo-fecha.activo { background: #F1F5F9; color: #0F172A; font-weight: 500; color-scheme: light; }
+    /* Lista de movimientos: los editables se pueden tocar */
+    .fila-editable { cursor: pointer; }
+    .chevron { color: #64748B; font-size: 20px; line-height: 1; }
+    /* Panel para editar un gasto: sobre la superficie, los campos y chips usan el fondo oscuro */
+    #fondoEdicion { background: rgba(15, 23, 42, 0.7); }
+    #hojaEdicion { background: #1E293B; border-radius: 32px 32px 0 0; max-height: 92vh; overflow-y: auto; }
+    #hojaEdicion .chip, #hojaEdicion .campo, #hojaEdicion .campo-fecha { background: #0F172A; }
+    #hojaEdicion .chip.activo { background: #F1F5F9; }
+    #editMonto {
+      width: 100%;
+      background: transparent;
+      border: 0;
+      outline: none;
+      text-align: center;
+      color: #F1F5F9;
+      caret-color: #38BDF8;
+    }
+    #btnBorrar { color: #FCA5A5; }
+    #btnBorrar.confirmar { background: #FCA5A5; color: #0F172A; font-weight: 500; }
+    #btnGuardarEdicion.error { background: #0F172A; color: #FCA5A5; }
+    /* Selector de grupo (y de vista en Resumen): botones en una cápsula */
+    .segmento {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(0, 1fr);
+      gap: 4px;
+      padding: 4px;
+      border-radius: 9999px;
+      background: #1E293B;
+    }
+    .segmento.oscuro { background: #0F172A; }
+    .segmento button {
+      min-height: 40px;
+      padding: 0 8px;
+      border-radius: 9999px;
+      background: transparent;
+      color: #94A3B8;
+      font-size: 16px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .segmento button.activo { background: #334155; color: #F1F5F9; font-weight: 500; }
+    .leyenda-punto { display: inline-block; width: 8px; height: 8px; border-radius: 9999px; margin-right: 6px; }
+    /* Chips de fijos pendientes: el toque largo no debe abrir el menú del sistema ni seleccionar texto */
+    .chip-fijo { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+    .punto-vencido {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      margin-right: 8px;
+      border-radius: 9999px;
+      background: #FCA5A5;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body class="antialiased">
+
+  <!-- Header -->
+  <header class="fixed top-0 inset-x-0 z-20 bg-fondo flex items-center justify-between px-4"
+          style="padding-top: calc(8px + env(safe-area-inset-top)); padding-bottom: 8px;">
+    <span id="tituloVista" class="etiqueta pl-2">Nuevo gasto</span>
+    <div class="flex items-center">
+    <button id="btnPersona" type="button" aria-label="Cambiar persona"
+            class="hidden h-12 flex items-center justify-center">
+      <span id="personaTxt" class="persona-pill">Quién</span>
+    </button>
+    <button id="btnSync" type="button" aria-label="Sincronizar"
+            class="w-12 h-12 flex items-center justify-center rounded-full">
+      <span class="w-8 h-8 rounded-full bg-superficie flex items-center justify-center text-slate-400">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+          <polyline points="21 3 21 9 15 9"></polyline>
+        </svg>
+      </span>
+    </button>
+    </div>
+  </header>
+
+  <!-- Selector de persona (una vez por celular) -->
+  <div id="selector" class="hidden fixed inset-0 z-40 flex flex-col justify-center px-4">
+    <div class="text-center mb-8">
+      <div class="etiqueta">Este celular es de</div>
+      <div class="mt-2" style="font-size: 24px; font-weight: 500; letter-spacing: -0.02em;">¿Quién sos?</div>
+    </div>
+    <div id="chipsPersonas" class="grid grid-cols-3 gap-2"></div>
+  </div>
+
+  <!-- Aviso de error abajo, cerca del pulgar (cuando el botón Guardar no sirve para mostrarlo) -->
+  <div id="aviso" class="hidden fixed inset-x-0 px-4 flex justify-center pointer-events-none" style="z-index: 60;">
+    <span id="avisoTxt" class="pill bg-superficie text-center" style="color: #FCA5A5;"></span>
+  </div>
+
+  <main class="px-4" style="padding-top: calc(64px + env(safe-area-inset-top));">
+
+    <!-- PESTAÑA CARGAR -->
+    <section id="vistaCargar" style="padding-bottom: calc(160px + env(safe-area-inset-bottom));">
+      <div class="pt-8 pb-8 text-center">
+        <label for="monto" class="etiqueta">Monto</label>
+        <input id="monto" class="monto-xl mt-2" type="text" inputmode="decimal"
+               autocomplete="off" autocorrect="off" spellcheck="false"
+               enterkeyhint="done" placeholder="0" autofocus>
+      </div>
+
+      <!-- Fijos de monto variable que faltan cargar este mes -->
+      <div id="pendientesCaja" class="hidden mb-6">
+        <div class="flex items-center justify-between gap-2 mb-2 px-2">
+          <span id="pendientesCuenta" class="etiqueta">Faltan este mes</span>
+          <span class="etiqueta">Mantené para omitir</span>
+        </div>
+        <div id="pendientes" class="grid grid-cols-3 gap-2"></div>
+        <div id="omitirBarra" class="hidden flex items-center gap-2 mt-2">
+          <span id="omitirTxt" class="flex-1 min-w-0 pl-2 text-slate-300 truncate"></span>
+          <button id="btnOmitirNo" type="button" class="chip">Cancelar</button>
+          <button id="btnOmitirSi" type="button" class="chip activo">Omitir</button>
+        </div>
+      </div>
+
+      <label for="detalle" class="etiqueta block mb-2 pl-2">Detalle</label>
+      <input id="detalle" class="campo" type="text" maxlength="120"
+             autocomplete="off" enterkeyhint="done" placeholder="Opcional">
+      <div id="sugerencias" class="hidden grid grid-cols-3 gap-2 mt-2"></div>
+
+      <div class="etiqueta mt-6 mb-2 pl-2">Categoría</div>
+      <div id="selectorGrupo" class="segmento mb-2" style="display: none;"></div>
+      <div id="chips" class="grid grid-cols-3 gap-2"></div>
+
+      <div id="fechaEtiqueta" class="etiqueta mt-6 mb-2 pl-2">Fecha · hoy</div>
+      <div class="flex items-center gap-2">
+        <input id="fecha" class="campo-fecha" type="date" aria-label="Fecha del gasto">
+        <button id="btnHoy" type="button" class="chip hidden">Volver a hoy</button>
+      </div>
+    </section>
+
+    <!-- PESTAÑA RESUMEN -->
+    <section id="vistaResumen" class="hidden" style="padding-bottom: calc(96px + env(safe-area-inset-bottom));">
+      <div class="pt-8 pb-8 text-center">
+        <div class="flex items-center justify-center gap-2">
+          <button id="mesAnt" type="button" class="flecha" aria-label="Mes anterior" disabled>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
+          <div id="mesLabel" class="etiqueta" style="min-width: 136px;">Este mes</div>
+          <button id="mesSig" type="button" class="flecha" aria-label="Mes siguiente" disabled>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </button>
+        </div>
+        <div id="total" class="monto-xl mt-2">$ 0</div>
+        <div id="comparacion" class="hidden mt-2 space-y-1"></div>
+        <button id="btnAgregarMes" type="button" class="pill hidden mt-4 bg-superficie text-slate-300">+ Agregar gasto</button>
+      </div>
+
+      <div class="card">
+        <div class="etiqueta mb-4">Top categorías</div>
+        <div id="top" class="space-y-4"></div>
+      </div>
+
+      <div id="cardPresupuesto" class="card mt-4 hidden">
+        <div class="etiqueta mb-4">Presupuesto</div>
+        <div id="presupuesto" class="space-y-6"></div>
+      </div>
+
+      <div id="cardPersonas" class="card mt-4 hidden">
+        <div class="etiqueta mb-4">Por persona</div>
+        <div id="porPersona" class="space-y-4"></div>
+      </div>
+
+      <div class="card mt-4">
+        <div class="etiqueta mb-4">Evolución del mes</div>
+        <div class="relative h-40"><canvas id="grafLinea"></canvas></div>
+      </div>
+
+      <div class="card mt-4">
+        <div class="flex items-center justify-between gap-2 mb-4">
+          <span id="tituloGrupos" class="etiqueta">Por grupo</span>
+          <div id="vistaGrupos" class="segmento oscuro" style="min-width: 216px;">
+            <button type="button" data-ver="grupos" class="activo">Grupos</button>
+            <button type="button" data-ver="categorias">Categorías</button>
+          </div>
+        </div>
+        <div id="panelDona" class="relative h-56"><canvas id="grafDona"></canvas></div>
+        <div id="panelBarras" style="display: none;">
+          <div id="leyendaGrupos" class="flex flex-wrap gap-x-4 gap-y-2 mb-4"></div>
+          <div id="barrasCategorias" class="space-y-4"></div>
+        </div>
+      </div>
+
+      <div class="card mt-4">
+        <div id="tituloLista" class="etiqueta mb-2">Últimos movimientos</div>
+        <ul id="ultimos"></ul>
+        <button id="btnVerTodos" type="button" class="pill w-full mt-2 bg-fondo text-slate-300">Ver todos</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Botón Guardar fijo (solo en Cargar) -->
+  <div id="barraGuardar" class="fixed inset-x-0 z-10 px-4 flex gap-2"
+       style="bottom: calc(72px + env(safe-area-inset-bottom));">
+    <button id="btnDeshacer" type="button" class="pill hidden shrink-0 bg-superficie text-slate-300">Deshacer</button>
+    <button id="btnGuardar" type="button" class="pill flex-1 min-w-0 bg-acento text-fondo font-medium">Guardar</button>
+  </div>
+
+  <!-- Barra inferior -->
+  <nav class="fixed bottom-0 inset-x-0 z-20 bg-superficie grid grid-cols-2"
+       style="padding-bottom: env(safe-area-inset-bottom);">
+    <button type="button" data-vista="cargar" class="tab activa h-16 flex flex-col items-center justify-center gap-2">
+      <span>Cargar</span><span class="punto"></span>
+    </button>
+    <button type="button" data-vista="resumen" class="tab h-16 flex flex-col items-center justify-center gap-2">
+      <span>Resumen</span><span class="punto"></span>
+    </button>
+  </nav>
+
+  <!-- Lista completa de movimientos de un mes -->
+  <div id="panelTodos" class="hidden fixed inset-0 z-40 bg-fondo overflow-y-auto">
+    <div class="sticky top-0 z-10 bg-fondo flex items-center justify-between px-4"
+         style="padding-top: calc(8px + env(safe-area-inset-top)); padding-bottom: 8px;">
+      <span id="todosTitulo" class="etiqueta pl-2">Movimientos</span>
+      <button id="btnCerrarTodos" type="button" class="flecha" aria-label="Cerrar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+    <div class="px-4" style="padding-bottom: calc(32px + env(safe-area-inset-bottom));">
+      <div class="card"><ul id="listaTodos"></ul></div>
+    </div>
+  </div>
+
+  <!-- Panel para editar o borrar un gasto -->
+  <div id="fondoEdicion" class="hidden fixed inset-0 z-50 flex items-end">
+    <div id="hojaEdicion" class="w-full px-4 pt-4" style="padding-bottom: calc(24px + env(safe-area-inset-bottom));">
+      <div class="flex items-center justify-between pl-2">
+        <span class="etiqueta">Editar gasto</span>
+        <button id="btnCerrarEdicion" type="button" class="flecha" aria-label="Cerrar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <input id="editMonto" class="monto-xl mt-2" type="text" inputmode="decimal" autocomplete="off" aria-label="Monto">
+      <label for="editDetalle" class="etiqueta block mt-6 mb-2 pl-2">Detalle</label>
+      <input id="editDetalle" class="campo" type="text" maxlength="120" autocomplete="off" placeholder="Opcional">
+      <div class="etiqueta mt-6 mb-2 pl-2">Categoría</div>
+      <div id="editGrupo" class="segmento oscuro mb-2" style="display: none;"></div>
+      <div id="editChips" class="grid grid-cols-3 gap-2"></div>
+      <div class="etiqueta mt-6 mb-2 pl-2">Fecha</div>
+      <input id="editFecha" class="campo-fecha" type="date" aria-label="Fecha del gasto">
+      <div id="editQuien" class="etiqueta mt-6 pl-2"></div>
+      <div class="flex gap-2 mt-6">
+        <button id="btnBorrar" type="button" class="pill shrink-0 bg-fondo">Borrar</button>
+        <button id="btnGuardarEdicion" type="button" class="pill flex-1 min-w-0 bg-acento text-fondo font-medium">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var ACENTO = '#38BDF8';
+    // Un color fijo por grupo, en el orden de Config (Insumos, Fijos, Otros…); el último es para "Sin grupo" y extras
+    var COLORES_GRUPO = ['#E2E8F0', '#94A3B8', '#64748B', '#475569', '#334155'];
+    var CLAVE_CAT = 'gastos.ultimaCategoria';
+    var CLAVE_PER = 'gastos.persona';
+    var CLAVE_VISTA_GRUPOS = 'gastos.vistaGrupos';
+    var SEG_DESHACER = 8;
+    var MAX_SUG_VISIBLES = 3;
+    var COLOR_MAS = '#FCA5A5';
+    var COLOR_MENOS = '#86EFAC';
+    var MS_TOQUE_LARGO = 600;
+
+    var MESES_NOMBRE = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+    var estado = {
+      categorias: [], categoria: null, personas: [], persona: leerLS(CLAVE_PER), sugerencias: [],
+      grupos: [],           // [{ nombre, categorias }] de Config, en orden
+      grupoVisto: null,     // grupo cuyas categorías se muestran en Cargar
+      vistaGrupos: leerLS(CLAVE_VISTA_GRUPOS) === 'categorias' ? 'categorias' : 'grupos',
+      guardando: false, deshaciendo: false, pendiente: null, vista: 'cargar',
+      fecha: '',            // '' = hoy; si no, 'aaaa-mm-dd' elegido en el chip de fecha
+      mesVisto: null,       // resumen que se está mostrando en la pestaña Resumen
+      resumenActual: null,  // resumen del mes en curso
+      mesPedido: null,      // clave del mes que se está pidiendo al servidor
+      omitiendo: null,      // fijo pendiente que se está por omitir (toque largo)
+      editando: null,       // { mov, categoria, confirmarBorrado } mientras el panel de edición está abierto
+      todosDe: null         // clave del mes de la lista "Ver todos" abierta
+    };
+    var timerEdicion = null;
+    var cacheMeses = {}; // Meses pasados ya pedidos, mientras la app está abierta
+    var ultimoGuardado = null; // { id, previo, restante, intervalo } mientras se puede deshacer
+    var graficos = { linea: null, dona: null };
+    var timerBoton = null;
+    var timerAviso = null;
+    var timerDeshacerError = null;
+    var MS_ERROR = 3000;
+    var ERRORES_CONOCIDOS = ['Monto inválido', 'Elegí una categoría', 'La hoja está ocupada, reintentá', 'Ya pasó el tiempo para deshacer',
+                             'La fecha no puede ser futura', 'Fecha inválida', 'Ese mes todavía no llegó', 'No encontré ese fijo',
+                             'Ese gasto no se puede editar'];
+
+    var nf = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+
+    function byId(id) { return document.getElementById(id); }
+    function dinero(n) { return '$ ' + nf.format(n || 0); }
+    function compacto(n) {
+      if (n >= 1000000) return (Math.round(n / 100000) / 10) + 'M';
+      if (n >= 1000) return Math.round(n / 1000) + 'k';
+      return String(n);
+    }
+    function el(tag, clase, texto) {
+      var e = document.createElement(tag);
+      if (clase) e.className = clase;
+      if (texto != null) e.textContent = texto;
+      return e;
+    }
+    function generarId() {
+      try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+      var bytes = new Uint8Array(16);
+      try { crypto.getRandomValues(bytes); } catch (e) {
+        for (var i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+      }
+      var s = '';
+      for (var j = 0; j < 16; j++) s += ('0' + bytes[j].toString(16)).slice(-2);
+      return s;
+    }
+    function leerLS(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+    function escribirLS(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+    /** Minúsculas y sin tildes, para comparar detalles ("Café" = "cafe"). */
+    function normalizar(s) {
+      s = String(s || '').toLowerCase();
+      if (s.normalize) s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return s.trim();
+    }
+
+    function pad2(n) { return ('0' + n).slice(-2); }
+    function hoyISO() {
+      var d = new Date();
+      return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+    }
+    /** 'aaaa-mm-dd' → '15/09' (o '15/09/25' si es de otro año) */
+    function fechaCorta(iso) {
+      var p = iso.split('-');
+      return p[2] + '/' + p[1] + (Number(p[0]) !== new Date().getFullYear() ? '/' + p[0].slice(-2) : '');
+    }
+    function claveMes(anio, mes) { return anio + '-' + pad2(mes + 1); }
+
+    /** Fecha válida para cargar un gasto pasado; si no, '' (= hoy). */
+    function fechaValida(iso) {
+      return iso && iso < hoyISO() && iso >= '2000-01-01' ? iso : '';
+    }
+
+    /** Campo de fecha: vacío, hoy, futura o inválida vuelven a hoy. Otra fecha queda destacada. */
+    function setFecha(iso) {
+      iso = fechaValida(iso);
+      estado.fecha = iso;
+      var input = byId('fecha');
+      input.max = hoyISO();
+      if (input.value !== (iso || hoyISO())) input.value = iso || hoyISO();
+      input.classList.toggle('activo', !!iso);
+      marcarFecha(iso);
+    }
+
+    /** Lo que está fuera del campo: la etiqueta y el botón "Volver a hoy". */
+    function marcarFecha(iso) {
+      byId('btnHoy').classList.toggle('hidden', !iso);
+      byId('fechaEtiqueta').textContent = iso ? 'Fecha · otro día' : 'Fecha · hoy';
+    }
+
+    function parsearMonto(v) {
+      var s = String(v || '').replace(/[^\d,.]/g, '');
+      if (s.indexOf(',') > -1) s = s.replace(/\./g, '').replace(',', '.');
+      var n = parseFloat(s);
+      return isFinite(n) ? n : 0;
+    }
+
+    function focoMonto() {
+      var m = byId('monto');
+      m.focus();
+      try { m.setSelectionRange(m.value.length, m.value.length); } catch (e) {}
+    }
+
+    /** Traduce el error del servidor o de la red a un texto corto y claro. */
+    function textoError(err, porDefecto) {
+      var msg = String((err && err.message) || err || '');
+      if (/network|failed to fetch|timeout|http 0/i.test(msg)) return 'Sin conexión · reintentá';
+      for (var i = 0; i < ERRORES_CONOCIDOS.length; i++) {
+        if (msg.indexOf(ERRORES_CONOCIDOS[i]) > -1) return ERRORES_CONOCIDOS[i];
+      }
+      if (msg.indexOf('Ese gasto ya no existe') > -1) return 'El gasto ya no está en la hoja';
+      var autor = msg.match(/Solo .+ puede cambiar este gasto/);
+      if (autor) return autor[0];
+      return porDefecto;
+    }
+
+    function vibrar() {
+      try { if (navigator.vibrate) navigator.vibrate(200); } catch (e) {}
+    }
+
+    /** Aviso abajo: rojo y con vibración para errores; blanco para confirmaciones (tipo 'ok'). */
+    function avisar(msg, tipo) {
+      var a = byId('aviso');
+      var txt = byId('avisoTxt');
+      txt.textContent = msg;
+      txt.style.color = tipo === 'ok' ? '#F1F5F9' : '#FCA5A5';
+      // En Cargar va arriba del botón Guardar; en Resumen, arriba de la barra de pestañas
+      a.style.bottom = estado.vista === 'cargar'
+        ? 'calc(136px + env(safe-area-inset-bottom))'
+        : 'calc(80px + env(safe-area-inset-bottom))';
+      a.classList.remove('hidden');
+      if (tipo !== 'ok') vibrar();
+      clearTimeout(timerAviso);
+      timerAviso = setTimeout(function () { a.classList.add('hidden'); }, 4000);
+    }
+
+    /* ---------- Navegación ---------- */
+    function mostrar(vista) {
+      estado.vista = vista;
+      var esCargar = vista === 'cargar';
+      byId('vistaCargar').classList.toggle('hidden', !esCargar);
+      byId('vistaResumen').classList.toggle('hidden', esCargar);
+      byId('barraGuardar').classList.toggle('hidden', !esCargar);
+      byId('tituloVista').textContent = esCargar ? 'Nuevo gasto' : 'Resumen';
+      var tabs = document.querySelectorAll('.tab');
+      for (var i = 0; i < tabs.length; i++) {
+        tabs[i].classList.toggle('activa', tabs[i].getAttribute('data-vista') === vista);
+      }
+      window.scrollTo(0, 0);
+      if (esCargar) {
+        focoMonto();
+      } else {
+        if (graficos.linea) graficos.linea.resize();
+        if (graficos.dona) graficos.dona.resize();
+      }
+    }
+
+    /* ---------- Categorías y grupos ---------- */
+
+    /** Grupo al que pertenece una categoría (o null si no está en Config). */
+    function grupoDeCategoria(c) {
+      for (var i = 0; i < estado.grupos.length; i++) {
+        if (estado.grupos[i].categorias.indexOf(c) > -1) return estado.grupos[i].nombre;
+      }
+      return null;
+    }
+
+    /** Grupos a mostrar; si Config no tiene la columna Grupo, uno solo con todas las categorías. */
+    function gruposParaMostrar() {
+      return estado.grupos.length ? estado.grupos : [{ nombre: '', categorias: estado.categorias }];
+    }
+
+    function categoriasDelGrupo(grupos, nombre) {
+      return (grupos.filter(function (g) { return g.nombre === nombre; })[0] || grupos[0]).categorias;
+    }
+
+    /** Al cargar o sincronizar: categoría válida (la última usada o la primera) y su grupo a la vista. */
+    function validarCategoria() {
+      var cats = estado.categorias;
+      if (cats.indexOf(estado.categoria) === -1) {
+        var guardada = leerLS(CLAVE_CAT);
+        estado.categoria = cats.indexOf(guardada) > -1 ? guardada : (cats[0] || null);
+      }
+      var nombres = gruposParaMostrar().map(function (g) { return g.nombre; });
+      if (nombres.indexOf(estado.grupoVisto) === -1) {
+        estado.grupoVisto = grupoDeCategoria(estado.categoria) || nombres[0];
+      }
+    }
+
+    /** Elige una categoría (autocompletar, fijo pendiente, deshacer) y muestra su grupo. */
+    function elegirCategoria(c) {
+      if (estado.categorias.indexOf(c) === -1) return;
+      estado.categoria = c;
+      escribirLS(CLAVE_CAT, c);
+      estado.grupoVisto = grupoDeCategoria(c) || estado.grupoVisto;
+      renderChips();
+    }
+
+    /** Botones de un selector de grupos; con un solo grupo no se muestra. */
+    function renderSegmento(cont, grupos, activo, alElegir) {
+      cont.innerHTML = '';
+      cont.style.display = grupos.length > 1 ? '' : 'none';
+      grupos.forEach(function (g) {
+        var b = el('button', g.nombre === activo ? 'activo' : '', g.nombre);
+        b.type = 'button';
+        b.title = g.nombre;
+        b.addEventListener('pointerdown', function (e) { e.preventDefault(); });
+        b.addEventListener('click', function () { alElegir(g.nombre); });
+        cont.appendChild(b);
+      });
+    }
+
+    function renderChips() {
+      var cont = byId('chips');
+      cont.innerHTML = '';
+      if (!estado.categorias.length) {
+        byId('selectorGrupo').style.display = 'none';
+        cont.appendChild(el('div', 'etiqueta col-span-3 pl-2', 'Agregá categorías en la hoja Config'));
+        return;
+      }
+
+      var grupos = gruposParaMostrar();
+      renderSegmento(byId('selectorGrupo'), grupos, estado.grupoVisto, function (nombre) {
+        estado.grupoVisto = nombre;
+        renderChips();
+      });
+
+      var visibles = categoriasDelGrupo(grupos, estado.grupoVisto);
+      // La categoría elegida siempre está a la vista: al cambiar de grupo hay que elegir una de ese grupo
+      if (visibles.indexOf(estado.categoria) === -1) estado.categoria = null;
+
+      visibles.forEach(function (c) {
+        var b = el('button', 'chip' + (c === estado.categoria ? ' activo' : ''), c);
+        b.type = 'button';
+        b.title = c;
+        b.addEventListener('pointerdown', function (e) { e.preventDefault(); });
+        b.addEventListener('click', function () {
+          estado.categoria = c;
+          escribirLS(CLAVE_CAT, c);
+          var todos = cont.querySelectorAll('.chip');
+          for (var i = 0; i < todos.length; i++) todos[i].classList.toggle('activo', todos[i] === b);
+        });
+        cont.appendChild(b);
+      });
+    }
+
+    /* ---------- Autocompletar detalle ---------- */
+    function renderSugerencias() {
+      var cont = byId('sugerencias');
+      var q = normalizar(byId('detalle').value);
+      cont.innerHTML = '';
+      if (q.length < 2) { cont.classList.add('hidden'); return; }
+
+      // Primero los que empiezan con lo escrito, después los que lo contienen
+      var empiezan = [];
+      var contienen = [];
+      for (var i = 0; i < estado.sugerencias.length; i++) {
+        var s = estado.sugerencias[i];
+        if (s.k === q) continue;
+        var pos = s.k.indexOf(q);
+        if (pos === 0) empiezan.push(s);
+        else if (pos > 0) contienen.push(s);
+      }
+      var lista = empiezan.concat(contienen).slice(0, MAX_SUG_VISIBLES);
+      if (!lista.length) { cont.classList.add('hidden'); return; }
+
+      lista.forEach(function (s) {
+        var b = el('button', 'chip', s.d);
+        b.type = 'button';
+        b.title = s.d;
+        b.addEventListener('pointerdown', function (e) { e.preventDefault(); });
+        b.addEventListener('click', function () {
+          byId('detalle').value = s.d;
+          elegirCategoria(s.c);
+          ocultarSugerencias();
+        });
+        cont.appendChild(b);
+      });
+      cont.classList.remove('hidden');
+    }
+
+    function ocultarSugerencias() {
+      var cont = byId('sugerencias');
+      cont.innerHTML = '';
+      cont.classList.add('hidden');
+    }
+
+    /* ---------- Fijos pendientes ---------- */
+    function renderPendientes(lista) {
+      cancelarOmitir();
+      var cont = byId('pendientes');
+      cont.innerHTML = '';
+      byId('pendientesCaja').classList.toggle('hidden', !lista.length);
+      byId('pendientesCuenta').textContent = 'Faltan este mes · ' + lista.length;
+
+      lista.forEach(function (f) {
+        var b = el('button', 'chip chip-fijo');
+        b.type = 'button';
+        b.title = f.detalle + (f.dia ? ' · día ' + f.dia : '');
+        if (f.vencido) b.appendChild(el('span', 'punto-vencido'));
+        b.appendChild(document.createTextNode(f.detalle));
+
+        // Toque corto: completa el formulario. Toque largo: ofrece omitirlo este mes.
+        var timer = null;
+        var largo = false;
+        b.addEventListener('pointerdown', function (e) {
+          e.preventDefault();
+          largo = false;
+          timer = setTimeout(function () { largo = true; pedirOmitir(f); }, MS_TOQUE_LARGO);
+        });
+        ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) {
+          b.addEventListener(ev, function () { clearTimeout(timer); });
+        });
+        b.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+        b.addEventListener('click', function () {
+          if (largo) { largo = false; return; }
+          elegirPendiente(f);
+        });
+        cont.appendChild(b);
+      });
+    }
+
+    function elegirPendiente(f) {
+      byId('detalle').value = f.detalle;
+      ocultarSugerencias();
+      elegirCategoria(f.categoria);
+      focoMonto();
+    }
+
+    function pedirOmitir(f) {
+      estado.omitiendo = f;
+      try { if (navigator.vibrate) navigator.vibrate(30); } catch (e) {}
+      byId('omitirTxt').textContent = '¿Omitir ' + f.detalle + ' este mes?';
+      var si = byId('btnOmitirSi');
+      si.disabled = false;
+      si.textContent = 'Omitir';
+      byId('omitirBarra').classList.remove('hidden');
+    }
+
+    function cancelarOmitir() {
+      estado.omitiendo = null;
+      byId('omitirBarra').classList.add('hidden');
+    }
+
+    function confirmarOmitir() {
+      var f = estado.omitiendo;
+      if (!f) return;
+      var si = byId('btnOmitirSi');
+      si.disabled = true;
+      si.textContent = 'Omitiendo…';
+      google.script.run
+        .withSuccessHandler(function (res) {
+          actualizarResumenes(res && res.resumen);
+          var v = estado.mesVisto;
+          if (!v || v.esActual) mostrarResumen(res && res.resumen);
+        })
+        .withFailureHandler(function (err) {
+          cancelarOmitir();
+          avisar(textoError(err, 'No se pudo omitir'));
+        })
+        .omitirFijo(f.detalle);
+    }
+
+    /* ---------- Personas ---------- */
+    function renderPersona() {
+      var hay = estado.personas.length > 0;
+      if (hay && estado.personas.indexOf(estado.persona) === -1) estado.persona = null;
+      byId('btnPersona').classList.toggle('hidden', !hay);
+      byId('personaTxt').textContent = estado.persona || 'Quién';
+      if (hay && !estado.persona) abrirSelector();
+    }
+
+    function abrirSelector() {
+      var cont = byId('chipsPersonas');
+      cont.innerHTML = '';
+      estado.personas.forEach(function (p) {
+        var b = el('button', 'chip' + (p === estado.persona ? ' activo' : ''), p);
+        b.type = 'button';
+        b.title = p;
+        b.addEventListener('click', function () {
+          estado.persona = p;
+          escribirLS(CLAVE_PER, p);
+          byId('personaTxt').textContent = p;
+          byId('selector').classList.add('hidden');
+          // Las listas cambian: cada persona puede editar solo lo que cargó
+          if (estado.mesVisto) mostrarResumen(estado.mesVisto);
+          if (estado.vista === 'cargar') focoMonto();
+        });
+        cont.appendChild(b);
+      });
+      byId('selector').classList.remove('hidden');
+    }
+
+    /* ---------- Resumen ---------- */
+
+    /** Guarda el resumen del mes en curso (sugerencias y fijos pendientes incluidos) sin mostrarlo. */
+    function recibirActual(r) {
+      if (!r) return;
+      estado.resumenActual = r;
+      if (r.sugerencias) {
+        estado.sugerencias = r.sugerencias.map(function (s) {
+          return { d: s.d, c: s.c, k: normalizar(s.d) };
+        });
+      }
+      if (r.pendientes) renderPendientes(r.pendientes);
+    }
+
+    function mostrarResumen(r) {
+      if (!r) return;
+      estado.mesVisto = r;
+      byId('mesLabel').textContent = r.etiquetaMes;
+      byId('total').textContent = dinero(r.total);
+      byId('mesSig').disabled = r.esActual;
+      byId('mesAnt').disabled = !r.primerMes || claveMes(r.anio, r.mes) <= r.primerMes;
+      var atajo = byId('btnAgregarMes');
+      atajo.textContent = '+ Agregar gasto a ' + MESES_NOMBRE[r.mes].toLowerCase();
+      atajo.classList.toggle('hidden', r.esActual);
+      byId('tituloLista').textContent = r.tituloLista;
+      renderComparacion(r.comparaciones);
+      renderTop(r.top);
+      renderPresupuesto(r.presupuesto);
+      renderPorPersona(r.personas);
+      renderLinea(r.evolucion);
+      renderDona(r.grupos);
+      renderBarrasCategorias(r.categorias, r.grupos);
+      aplicarVistaGrupos();
+      renderUltimos(r.ultimos, r.esActual);
+    }
+
+    /** Después de guardar, deshacer o sincronizar: los meses guardados pueden haber cambiado. */
+    function actualizarResumenes(r) {
+      cacheMeses = {};
+      recibirActual(r);
+    }
+
+    function cargandoMes(si) {
+      byId('total').classList.toggle('cargando', si);
+      if (si) {
+        byId('mesAnt').disabled = true;
+        byId('mesSig').disabled = true;
+      }
+    }
+
+    function moverMes(delta) {
+      var v = estado.mesVisto;
+      if (!v || estado.mesPedido) return;
+      var d = new Date(v.anio, v.mes + delta, 1);
+      var a = estado.resumenActual;
+      if (a && d.getFullYear() === a.anio && d.getMonth() === a.mes) { mostrarResumen(a); return; }
+      pedirMes(d.getFullYear(), d.getMonth());
+    }
+
+    function pedirMes(anio, mes) {
+      var clave = claveMes(anio, mes);
+      if (cacheMeses[clave]) { mostrarResumen(cacheMeses[clave]); return; }
+
+      estado.mesPedido = clave;
+      byId('mesLabel').textContent = MESES_NOMBRE[mes] + ' ' + anio;
+      cargandoMes(true);
+      google.script.run
+        .withSuccessHandler(function (r) {
+          cacheMeses[clave] = r;
+          if (estado.mesPedido !== clave) return;
+          estado.mesPedido = null;
+          cargandoMes(false);
+          mostrarResumen(r);
+        })
+        .withFailureHandler(function (err) {
+          if (estado.mesPedido !== clave) return;
+          estado.mesPedido = null;
+          cargandoMes(false);
+          mostrarResumen(estado.mesVisto);
+          avisar(textoError(err, 'No se pudo cargar ese mes'));
+        })
+        .getResumenMes(anio, mes);
+    }
+
+    /** Atajo de un mes pasado: va a Cargar con la fecha puesta en el último día de ese mes. */
+    function agregarEnMesVisto() {
+      var v = estado.mesVisto;
+      if (!v || v.esActual) return;
+      var ultimoDia = new Date(v.anio, v.mes + 1, 0).getDate();
+      mostrar('cargar');
+      setFecha(v.anio + '-' + pad2(v.mes + 1) + '-' + pad2(ultimoDia));
+    }
+
+    /** "↑ 12% vs. agosto": rojo si en el mes visto se gastó más que en el otro, verde si menos. */
+    function renderComparacion(lista) {
+      var cont = byId('comparacion');
+      cont.innerHTML = '';
+      lista = lista || [];
+      lista.forEach(function (c) {
+        var linea = el('div');
+        var flecha = c.pct > 0 ? '↑ ' : (c.pct < 0 ? '↓ ' : '= ');
+        var pct = el('span', 'font-medium tabular-nums', flecha + Math.abs(c.pct) + '%');
+        pct.style.color = c.pct > 0 ? COLOR_MAS : (c.pct < 0 ? COLOR_MENOS : '#94A3B8');
+        linea.appendChild(pct);
+        linea.appendChild(el('span', 'text-slate-400', ' ' + c.texto));
+        cont.appendChild(linea);
+      });
+      cont.classList.toggle('hidden', !lista.length);
+    }
+
+    function renderTop(top) {
+      var cont = byId('top');
+      cont.innerHTML = '';
+      if (!top || !top.length) {
+        cont.appendChild(el('div', 'text-slate-400', 'Sin gastos este mes'));
+        return;
+      }
+      renderBarras(cont, top, true);
+    }
+
+    /**
+     * Presupuesto del mes: un bloque por grupo (con el subtotal) y una barra por categoría con tope.
+     * La barra se pone en rojo suave al pasar el 100%; la tarjeta no se muestra si no hay topes en Config.
+     */
+    function renderPresupuesto(grupos) {
+      var card = byId('cardPresupuesto');
+      var cont = byId('presupuesto');
+      cont.innerHTML = '';
+      grupos = grupos || [];
+      card.classList.toggle('hidden', !grupos.length);
+
+      grupos.forEach(function (g) {
+        var bloque = el('div');
+        // Nombre del grupo y su % en una línea; el subtotal en la de abajo, para que el nombre no se corte
+        var cabecera = el('div', 'mb-4');
+        var titulo = el('div', 'flex items-baseline justify-between gap-4');
+        titulo.appendChild(el('span', 'etiqueta truncate', g.nombre));
+        var pctGrupo = el('span', 'etiqueta shrink-0', g.pct + '%');
+        if (g.pct > 100) pctGrupo.style.color = COLOR_MAS;
+        titulo.appendChild(pctGrupo);
+        cabecera.appendChild(titulo);
+        cabecera.appendChild(el('div', 'tabular-nums text-slate-300 mt-2', dinero(g.gastado) + ' de ' + dinero(g.tope)));
+        bloque.appendChild(cabecera);
+
+        var filas = el('div', 'space-y-4');
+        g.categorias.forEach(function (c) {
+          var pasado = c.pct > 100;
+          var fila = el('div');
+          var linea = el('div', 'flex items-baseline justify-between gap-4 mb-2');
+          linea.appendChild(el('span', 'truncate', c.nombre));
+          var der = el('span', 'shrink-0 tabular-nums');
+          der.appendChild(document.createTextNode(dinero(c.gastado) + ' '));
+          var pct = el('span', 'etiqueta', c.pct + '%');
+          if (pasado) pct.style.color = COLOR_MAS;
+          der.appendChild(pct);
+          linea.appendChild(der);
+          var barra = el('div', 'barra');
+          var relleno = el('div');
+          relleno.style.width = Math.max(Math.min(c.pct, 100), 2) + '%';
+          relleno.style.background = pasado ? COLOR_MAS : '#94A3B8';
+          barra.appendChild(relleno);
+          var nota = el('div', 'etiqueta mt-2', pasado ? 'Se pasó por ' + dinero(c.gastado - c.tope) : 'de ' + dinero(c.tope));
+          if (pasado) nota.style.color = COLOR_MAS;
+          fila.appendChild(linea);
+          fila.appendChild(barra);
+          fila.appendChild(nota);
+          filas.appendChild(fila);
+        });
+        bloque.appendChild(filas);
+        cont.appendChild(bloque);
+      });
+    }
+
+    function renderPorPersona(lista) {
+      var card = byId('cardPersonas');
+      var hay = lista && lista.length && (estado.personas.length || lista.length > 1 || lista[0].nombre !== 'Sin asignar');
+      card.classList.toggle('hidden', !hay);
+      var cont = byId('porPersona');
+      cont.innerHTML = '';
+      if (hay) renderBarras(cont, lista, false);
+    }
+
+    function renderBarras(cont, items, acentoEnPrimero) {
+      items.forEach(function (c, i) {
+        var fila = el('div');
+        var linea = el('div', 'flex items-baseline justify-between gap-4 mb-2');
+        linea.appendChild(el('span', 'truncate', c.nombre));
+        var der = el('span', 'shrink-0 tabular-nums');
+        der.appendChild(document.createTextNode(dinero(c.monto) + ' '));
+        der.appendChild(el('span', 'etiqueta', c.pct + '%'));
+        linea.appendChild(der);
+        var barra = el('div', 'barra');
+        var relleno = el('div');
+        relleno.style.width = Math.max(c.pct, 2) + '%';
+        relleno.style.background = (acentoEnPrimero && i === 0) ? ACENTO : '#94A3B8';
+        barra.appendChild(relleno);
+        fila.appendChild(linea);
+        fila.appendChild(barra);
+        cont.appendChild(fila);
+      });
+    }
+
+    function renderLinea(ev) {
+      if (typeof Chart === 'undefined' || !ev) return;
+      if (graficos.linea) {
+        graficos.linea.data.labels = ev.labels;
+        graficos.linea.data.datasets[0].data = ev.valores;
+        graficos.linea.update();
+        return;
+      }
+      graficos.linea = new Chart(byId('grafLinea'), {
+        type: 'line',
+        data: {
+          labels: ev.labels,
+          datasets: [{
+            data: ev.valores,
+            borderColor: '#CBD5E1',
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHitRadius: 16,
+            tension: 0.35,
+            fill: true,
+            backgroundColor: 'rgba(148,163,184,0.08)'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              displayColors: false,
+              callbacks: {
+                title: function (items) { return 'Día ' + items[0].label; },
+                label: function (c) { return dinero(c.parsed.y); }
+              }
+            }
+          },
+          scales: {
+            x: { grid: { display: false }, border: { display: false }, ticks: { color: '#64748B', font: { size: 11 }, maxTicksLimit: 6, maxRotation: 0 } },
+            y: { beginAtZero: true, grid: { color: 'rgba(100,116,139,0.15)' }, border: { display: false }, ticks: { color: '#64748B', font: { size: 11 }, maxTicksLimit: 4, callback: function (v) { return compacto(v); } } }
+          }
+        }
+      });
+    }
+
+    /** Color de un grupo según su posición en la lista de grupos del mes. */
+    function colorGrupo(grupos, nombre) {
+      var i = (grupos || []).map(function (g) { return g.nombre; }).indexOf(nombre);
+      return COLORES_GRUPO[i > -1 ? Math.min(i, COLORES_GRUPO.length - 1) : COLORES_GRUPO.length - 1];
+    }
+
+    /** Vista de la tarjeta "Por grupo": dona de grupos o barras por categoría. */
+    function aplicarVistaGrupos() {
+      var verCategorias = estado.vistaGrupos === 'categorias';
+      byId('tituloGrupos').textContent = verCategorias ? 'Por categoría' : 'Por grupo';
+      byId('panelDona').style.display = verCategorias ? 'none' : '';
+      byId('panelBarras').style.display = verCategorias ? '' : 'none';
+      var botones = byId('vistaGrupos').querySelectorAll('button');
+      for (var i = 0; i < botones.length; i++) {
+        botones[i].classList.toggle('activo', botones[i].getAttribute('data-ver') === estado.vistaGrupos);
+      }
+      if (!verCategorias && graficos.dona) graficos.dona.resize();
+    }
+
+    /** Todas las categorías del mes, de mayor a menor, cada barra con el color de su grupo. */
+    function renderBarrasCategorias(cats, grupos) {
+      var leyenda = byId('leyendaGrupos');
+      var cont = byId('barrasCategorias');
+      leyenda.innerHTML = '';
+      cont.innerHTML = '';
+      cats = cats || [];
+      if (!cats.length) {
+        cont.appendChild(el('div', 'text-slate-400', 'Sin gastos este mes'));
+        return;
+      }
+      (grupos || []).forEach(function (g) {
+        var item = el('span', 'etiqueta');
+        var punto = el('span', 'leyenda-punto');
+        punto.style.background = colorGrupo(grupos, g.nombre);
+        item.appendChild(punto);
+        item.appendChild(document.createTextNode(g.nombre));
+        leyenda.appendChild(item);
+      });
+
+      var total = cats.reduce(function (s, c) { return s + c.monto; }, 0);
+      var maximo = cats[0].monto;
+      cats.forEach(function (c) {
+        var fila = el('div');
+        var linea = el('div', 'flex items-baseline justify-between gap-4 mb-2');
+        linea.appendChild(el('span', 'truncate', c.nombre));
+        var der = el('span', 'shrink-0 tabular-nums');
+        der.appendChild(document.createTextNode(dinero(c.monto) + ' '));
+        der.appendChild(el('span', 'etiqueta', (total > 0 ? Math.round(c.monto / total * 100) : 0) + '%'));
+        linea.appendChild(der);
+        var barra = el('div', 'barra');
+        var relleno = el('div');
+        // El ancho es relativo a la categoría más grande, para que se distingan bien
+        relleno.style.width = Math.max(maximo > 0 ? c.monto / maximo * 100 : 0, 2) + '%';
+        relleno.style.background = colorGrupo(grupos, c.grupo);
+        barra.appendChild(relleno);
+        fila.appendChild(linea);
+        fila.appendChild(barra);
+        cont.appendChild(fila);
+      });
+    }
+
+    /** Dona con el gasto de cada grupo del mes (Insumos, Fijos, Otros…). */
+    function renderDona(grupos) {
+      if (typeof Chart === 'undefined') return;
+      grupos = (grupos || []).filter(function (g) { return g.monto > 0; });
+      var todos = estado.mesVisto ? estado.mesVisto.grupos : grupos;
+      var labels = grupos.map(function (g) { return g.nombre + ' · ' + g.pct + '%'; });
+      var datos = grupos.map(function (g) { return g.monto; });
+      var colores = grupos.map(function (g) { return colorGrupo(todos, g.nombre); });
+      if (!grupos.length) { labels = ['Sin datos']; datos = [1]; colores = ['#334155']; }
+
+      if (graficos.dona) {
+        graficos.dona.data.labels = labels;
+        graficos.dona.data.datasets[0].data = datos;
+        graficos.dona.data.datasets[0].backgroundColor = colores;
+        graficos.dona.update();
+        return;
+      }
+      graficos.dona = new Chart(byId('grafDona'), {
+        type: 'doughnut',
+        data: { labels: labels, datasets: [{ data: datos, backgroundColor: colores, borderWidth: 0, hoverOffset: 4 }] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '72%',
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: { color: '#94A3B8', font: { size: 11 }, boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: 'circle', padding: 8 }
+            },
+            tooltip: {
+              callbacks: { label: function (c) { return ' ' + c.label + ': ' + dinero(c.parsed); } }
+            }
+          }
+        }
+      });
+    }
+
+    function renderUltimos(lista, esActual) {
+      var ul = byId('ultimos');
+      ul.innerHTML = '';
+      if (!lista || !lista.length) {
+        ul.appendChild(el('li', 'py-2 text-slate-400', esActual === false ? 'Sin gastos (sin contar los fijos)' : 'Todavía no hay movimientos'));
+        return;
+      }
+      lista.forEach(function (m, i) { ul.appendChild(filaMovimiento(m, i)); });
+    }
+
+    /* ---------- Editar y borrar ---------- */
+
+    /** Solo quien cargó el gasto lo puede cambiar; los fijos automáticos, cualquiera. Sin ID, nadie. */
+    function puedeEditar(m) {
+      if (!m.id) return false;
+      if (!m.quien || m.quien === 'Automático') return true;
+      return normalizar(m.quien) === normalizar(estado.persona || '');
+    }
+
+    /** Fila de un movimiento. Si tiene ID, al tocarla se edita (o avisa quién lo puede editar). */
+    function filaMovimiento(m, i) {
+      var li = el('li', 'flex items-center justify-between gap-4 py-2' + (i ? ' border-t border-slate-700/50' : ''));
+      li.style.minHeight = '56px';
+      var izq = el('div', 'min-w-0 flex-1');
+      izq.appendChild(el('div', 'truncate', m.detalle || m.categoria));
+      izq.appendChild(el('div', 'etiqueta mt-1 truncate', m.fecha + ' · ' + m.categoria + (m.quien ? ' · ' + m.quien : '')));
+      li.appendChild(izq);
+      li.appendChild(el('div', 'shrink-0 tabular-nums', dinero(m.monto)));
+      if (m.id) {
+        var editable = puedeEditar(m);
+        if (editable) li.appendChild(el('span', 'chevron shrink-0', '›'));
+        li.classList.add('fila-editable');
+        li.addEventListener('click', function () {
+          if (editable) abrirEdicion(m);
+          else avisar('Solo ' + m.quien + ' puede editar este gasto');
+        });
+      }
+      return li;
+    }
+
+    function abrirTodos() {
+      var v = estado.mesVisto;
+      if (!v) return;
+      var clave = claveMes(v.anio, v.mes);
+      estado.todosDe = clave;
+      byId('todosTitulo').textContent = 'Movimientos · ' + v.etiquetaMes;
+      var ul = byId('listaTodos');
+      ul.innerHTML = '';
+      ul.appendChild(el('li', 'py-2 text-slate-400', 'Cargando…'));
+      byId('panelTodos').classList.remove('hidden');
+      google.script.run
+        .withSuccessHandler(function (lista) {
+          if (estado.todosDe === clave) renderListaTodos(lista);
+        })
+        .withFailureHandler(function (err) {
+          if (estado.todosDe !== clave) return;
+          cerrarTodos();
+          avisar(textoError(err, 'No se pudo cargar la lista'));
+        })
+        .getMovimientosMes(v.anio, v.mes);
+    }
+
+    function renderListaTodos(lista) {
+      var ul = byId('listaTodos');
+      ul.innerHTML = '';
+      if (!lista || !lista.length) {
+        ul.appendChild(el('li', 'py-2 text-slate-400', 'Sin movimientos este mes'));
+        return;
+      }
+      lista.forEach(function (m, i) { ul.appendChild(filaMovimiento(m, i)); });
+    }
+
+    function cerrarTodos() {
+      estado.todosDe = null;
+      byId('panelTodos').classList.add('hidden');
+    }
+
+    function abrirEdicion(m) {
+      var grupoInicial = grupoDeCategoria(m.categoria) || gruposParaMostrar()[0].nombre;
+      estado.editando = { mov: m, categoria: m.categoria, grupo: grupoInicial, grupoInicial: grupoInicial, confirmarBorrado: false };
+      byId('editMonto').value = String(m.monto).replace('.', ',');
+      byId('editDetalle').value = m.detalle;
+      var f = byId('editFecha');
+      f.max = hoyISO();
+      f.value = m.fechaISO;
+      byId('editQuien').textContent = m.quien ? 'Cargado por ' + m.quien : '';
+      renderEditChips();
+      reiniciarBotonesEdicion();
+      byId('fondoEdicion').classList.remove('hidden');
+    }
+
+    function renderEditChips() {
+      var e = estado.editando;
+      var cont = byId('editChips');
+      cont.innerHTML = '';
+      var grupos = gruposParaMostrar();
+      renderSegmento(byId('editGrupo'), grupos, e.grupo, function (nombre) {
+        e.grupo = nombre;
+        renderEditChips();
+      });
+
+      var cats = categoriasDelGrupo(grupos, e.grupo).slice();
+      // Una categoría que ya no está en Config se muestra en el grupo inicial, para no perderla
+      if (e.categoria && !grupoDeCategoria(e.categoria) && e.grupo === e.grupoInicial && cats.indexOf(e.categoria) === -1) {
+        cats.unshift(e.categoria);
+      }
+      // Igual que en Cargar: la categoría elegida siempre está a la vista
+      if (cats.indexOf(e.categoria) === -1) e.categoria = null;
+
+      cats.forEach(function (c) {
+        var b = el('button', 'chip' + (c === e.categoria ? ' activo' : ''), c);
+        b.type = 'button';
+        b.title = c;
+        b.addEventListener('click', function () {
+          e.categoria = c;
+          renderEditChips();
+        });
+        cont.appendChild(b);
+      });
+    }
+
+    function reiniciarBotonesEdicion() {
+      clearTimeout(timerEdicion);
+      var g = byId('btnGuardarEdicion');
+      g.disabled = false;
+      g.textContent = 'Guardar cambios';
+      g.classList.remove('error');
+      var b = byId('btnBorrar');
+      b.disabled = false;
+      b.textContent = 'Borrar';
+      b.classList.remove('confirmar');
+      if (estado.editando) estado.editando.confirmarBorrado = false;
+    }
+
+    function cerrarEdicion() {
+      clearTimeout(timerEdicion);
+      estado.editando = null;
+      byId('fondoEdicion').classList.add('hidden');
+    }
+
+    function errorEdicion(err, porDefecto) {
+      reiniciarBotonesEdicion();
+      var g = byId('btnGuardarEdicion');
+      g.textContent = textoError(err, porDefecto);
+      g.classList.add('error');
+      vibrar();
+      timerEdicion = setTimeout(reiniciarBotonesEdicion, MS_ERROR);
+    }
+
+    /** Datos comunes de editar y borrar: el gasto, quién lo pide y el mes que se está mirando. */
+    function pedidoEdicion() {
+      var v = estado.mesVisto || {};
+      return { id: estado.editando.mov.id, quien: estado.persona || '', anio: v.anio, mes: v.mes };
+    }
+
+    function guardarEdicion() {
+      var e = estado.editando;
+      if (!e) return;
+      var monto = parsearMonto(byId('editMonto').value);
+      if (!(monto > 0)) { errorEdicion(null, 'Ingresá un monto'); return; }
+      if (!e.categoria) { errorEdicion(null, 'Elegí una categoría'); return; }
+      var fecha = byId('editFecha').value || e.mov.fechaISO;
+      if (fecha > hoyISO()) { errorEdicion(null, 'La fecha no puede ser futura'); return; }
+
+      var p = pedidoEdicion();
+      p.monto = monto;
+      p.detalle = byId('editDetalle').value;
+      p.categoria = e.categoria;
+      p.fecha = fecha;
+
+      var g = byId('btnGuardarEdicion');
+      g.disabled = true;
+      g.textContent = 'Guardando…';
+      google.script.run
+        .withSuccessHandler(function (res) {
+          aplicarTrasCambio(res);
+          cerrarEdicion();
+          avisar('✓ Cambios guardados', 'ok');
+        })
+        .withFailureHandler(function (err) { errorEdicion(err, 'No se pudo guardar · reintentá'); })
+        .editarGasto(p);
+    }
+
+    /** Primer toque: pide confirmación. Segundo toque (dentro de 3 s): borra. */
+    function borrarEdicion() {
+      var e = estado.editando;
+      if (!e) return;
+      var b = byId('btnBorrar');
+      if (!e.confirmarBorrado) {
+        e.confirmarBorrado = true;
+        b.textContent = '¿Seguro?';
+        b.classList.add('confirmar');
+        clearTimeout(timerEdicion);
+        timerEdicion = setTimeout(reiniciarBotonesEdicion, MS_ERROR);
+        return;
+      }
+      clearTimeout(timerEdicion);
+      b.disabled = true;
+      b.textContent = 'Borrando…';
+      google.script.run
+        .withSuccessHandler(function (res) {
+          aplicarTrasCambio(res);
+          cerrarEdicion();
+          avisar('✓ Gasto borrado', 'ok');
+        })
+        .withFailureHandler(function (err) { errorEdicion(err, 'No se pudo borrar'); })
+        .borrarGasto(pedidoEdicion());
+    }
+
+    /** Actualiza el resumen del mes que se está mirando (sin cambiar de mes) y la lista "Ver todos". */
+    function aplicarTrasCambio(res) {
+      if (!res) return;
+      actualizarResumenes(res.resumen);
+      var v = estado.mesVisto;
+      if (res.resumenMes) {
+        cacheMeses[claveMes(res.resumenMes.anio, res.resumenMes.mes)] = res.resumenMes;
+        if (v && !v.esActual) mostrarResumen(res.resumenMes);
+      } else if (!v || v.esActual) {
+        mostrarResumen(res.resumen);
+      }
+      if (estado.todosDe) renderListaTodos(res.movimientos);
+    }
+
+    /* ---------- Sync ---------- */
+    function cargarDatos() {
+      var btn = byId('btnSync');
+      btn.classList.add('girando');
+      btn.disabled = true;
+      google.script.run
+        .withSuccessHandler(function (d) {
+          btn.classList.remove('girando');
+          btn.disabled = false;
+          estado.categorias = (d && d.categorias) || [];
+          estado.grupos = (d && d.grupos) || [];
+          estado.personas = (d && d.personas) || [];
+          validarCategoria();
+          renderChips();
+          renderPersona();
+          actualizarResumenes(d && d.resumen);
+          // Si se estaba mirando un mes pasado, se refresca ese mes; si no, el actual
+          var v = estado.mesVisto;
+          if (v && !v.esActual) pedirMes(v.anio, v.mes);
+          else mostrarResumen(d && d.resumen);
+        })
+        .withFailureHandler(function (err) {
+          btn.classList.remove('girando');
+          btn.disabled = false;
+          avisar(textoError(err, 'No se pudo sincronizar'));
+        })
+        .getDatos();
+    }
+
+    /* ---------- Guardar ---------- */
+    function estadoBoton(texto, clase, volverEn) {
+      var b = byId('btnGuardar');
+      clearTimeout(timerBoton);
+      b.textContent = texto;
+      b.className = 'pill flex-1 min-w-0 bg-acento text-fondo font-medium' + (clase ? ' ' + clase : '');
+      if (volverEn) {
+        timerBoton = setTimeout(function () { estadoBoton('Guardar', ''); }, volverEn);
+      }
+    }
+
+    function guardar() {
+      if (estado.guardando || estado.deshaciendo) return;
+      var inMonto = byId('monto');
+      var inDetalle = byId('detalle');
+      var monto = parsearMonto(inMonto.value);
+
+      if (!(monto > 0)) { estadoBoton('Ingresá un monto', 'error', 1500); focoMonto(); return; }
+      if (!estado.categoria) { estadoBoton('Elegí una categoría', 'error', 1500); return; }
+      if (estado.personas.length && !estado.persona) { abrirSelector(); return; }
+
+      // Si es el reintento de un envío que falló, se reusa el mismo ID para que no se duplique
+      var firma = monto + '|' + inDetalle.value.trim() + '|' + estado.categoria + '|' + (estado.persona || '') + '|' + estado.fecha;
+      var id = (estado.pendiente && estado.pendiente.firma === firma) ? estado.pendiente.id : generarId();
+      estado.pendiente = { id: id, firma: firma };
+
+      var previo = { monto: inMonto.value, detalle: inDetalle.value, categoria: estado.categoria, fecha: estado.fecha };
+      var gasto = { id: id, monto: monto, detalle: inDetalle.value, categoria: estado.categoria, quien: estado.persona || '', fecha: estado.fecha };
+
+      ocultarDeshacer();
+      estado.guardando = true;
+      estadoBoton('Guardando…', 'cargando');
+      inMonto.value = '';
+      inDetalle.value = '';
+      setFecha('');
+      ocultarSugerencias();
+      focoMonto();
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          estado.guardando = false;
+          estado.pendiente = null;
+          var texto = res && res.duplicado ? '✓ Ya estaba guardado'
+            : (previo.fecha ? '✓ Guardado el ' + fechaCorta(previo.fecha) : '✓ Guardado ' + dinero(monto));
+          estadoBoton(texto, '', 1400);
+          actualizarResumenes(res && res.resumen);
+          mostrarResumen(res && res.resumen);
+          mostrarDeshacer(id, previo);
+        })
+        .withFailureHandler(function (err) {
+          estado.guardando = false;
+          if (!inMonto.value) inMonto.value = previo.monto;
+          if (!inDetalle.value) inDetalle.value = previo.detalle;
+          if (!estado.fecha) setFecha(previo.fecha);
+          estadoBoton(textoError(err, 'No se pudo guardar · reintentá'), 'error', MS_ERROR);
+          vibrar();
+          focoMonto();
+        })
+        .guardarGasto(gasto);
+    }
+
+    /* ---------- Deshacer (solo lo guardado desde este celular) ---------- */
+    function mostrarDeshacer(id, previo) {
+      ocultarDeshacer();
+      var b = byId('btnDeshacer');
+      ultimoGuardado = { id: id, previo: previo, restante: SEG_DESHACER, intervalo: null };
+      b.disabled = false;
+      b.textContent = 'Deshacer · ' + SEG_DESHACER;
+      b.classList.remove('hidden');
+      ultimoGuardado.intervalo = setInterval(function () {
+        ultimoGuardado.restante--;
+        if (ultimoGuardado.restante <= 0) { ocultarDeshacer(); return; }
+        b.textContent = 'Deshacer · ' + ultimoGuardado.restante;
+      }, 1000);
+    }
+
+    function ocultarDeshacer() {
+      if (ultimoGuardado) clearInterval(ultimoGuardado.intervalo);
+      ultimoGuardado = null;
+      clearTimeout(timerDeshacerError);
+      var b = byId('btnDeshacer');
+      b.classList.remove('error');
+      b.classList.add('hidden');
+    }
+
+    function deshacer() {
+      if (!ultimoGuardado || estado.guardando || estado.deshaciendo) return;
+      var d = ultimoGuardado;
+      clearInterval(d.intervalo);
+      ultimoGuardado = null;
+      estado.deshaciendo = true;
+
+      var b = byId('btnDeshacer');
+      b.disabled = true;
+      b.textContent = 'Deshaciendo…';
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          estado.deshaciendo = false;
+          b.classList.add('hidden');
+          estadoBoton('Gasto deshecho', '', 1400);
+          actualizarResumenes(res && res.resumen);
+          mostrarResumen(res && res.resumen);
+          // Devuelve los datos al formulario para corregirlos, si no se empezó a cargar otro
+          var inMonto = byId('monto');
+          if (!inMonto.value) {
+            inMonto.value = d.previo.monto;
+            byId('detalle').value = d.previo.detalle;
+            setFecha(d.previo.fecha);
+            elegirCategoria(d.previo.categoria);
+          }
+          focoMonto();
+        })
+        .withFailureHandler(function (err) {
+          estado.deshaciendo = false;
+          // El botón no desaparece: avisa que falló y el motivo va en el botón Guardar
+          b.textContent = 'No se pudo';
+          b.classList.add('error');
+          estadoBoton(textoError(err, 'No se pudo deshacer'), 'error', MS_ERROR);
+          vibrar();
+          timerDeshacerError = setTimeout(ocultarDeshacer, MS_ERROR);
+        })
+        .deshacerGasto(d.id);
+    }
+
+    /* ---------- Init ---------- */
+    (function init() {
+      if (typeof Chart !== 'undefined') {
+        Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
+        Chart.defaults.color = '#64748B';
+      }
+
+      var btnGuardar = byId('btnGuardar');
+      btnGuardar.addEventListener('pointerdown', function (e) { e.preventDefault(); });
+      btnGuardar.addEventListener('click', guardar);
+
+      var btnDeshacer = byId('btnDeshacer');
+      btnDeshacer.addEventListener('pointerdown', function (e) { e.preventDefault(); });
+      btnDeshacer.addEventListener('click', deshacer);
+
+      byId('monto').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); guardar(); }
+      });
+      byId('detalle').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); guardar(); }
+      });
+      byId('detalle').addEventListener('input', renderSugerencias);
+
+      byId('btnSync').addEventListener('click', cargarDatos);
+      byId('btnPersona').addEventListener('click', abrirSelector);
+      // Mientras se edita la fecha no se toca el campo (en la PC, tocarlo corta el tipeo): se aplica al salir
+      byId('fecha').addEventListener('change', function () {
+        if (document.activeElement === this) {
+          estado.fecha = fechaValida(this.value);
+          marcarFecha(estado.fecha);
+        } else {
+          setFecha(this.value);
+        }
+      });
+      byId('fecha').addEventListener('blur', function () { setFecha(this.value); });
+      byId('btnHoy').addEventListener('click', function () { setFecha(''); });
+      byId('btnOmitirSi').addEventListener('click', confirmarOmitir);
+      byId('btnOmitirNo').addEventListener('click', cancelarOmitir);
+      byId('btnVerTodos').addEventListener('click', abrirTodos);
+      byId('btnCerrarTodos').addEventListener('click', cerrarTodos);
+      byId('btnCerrarEdicion').addEventListener('click', cerrarEdicion);
+      byId('fondoEdicion').addEventListener('click', function (e) { if (e.target === this) cerrarEdicion(); });
+      byId('btnGuardarEdicion').addEventListener('click', guardarEdicion);
+      byId('btnBorrar').addEventListener('click', borrarEdicion);
+      byId('mesAnt').addEventListener('click', function () { moverMes(-1); });
+      byId('mesSig').addEventListener('click', function () { moverMes(1); });
+      byId('btnAgregarMes').addEventListener('click', agregarEnMesVisto);
+      Array.prototype.forEach.call(byId('vistaGrupos').querySelectorAll('button'), function (b) {
+        b.addEventListener('click', function () {
+          estado.vistaGrupos = b.getAttribute('data-ver');
+          escribirLS(CLAVE_VISTA_GRUPOS, estado.vistaGrupos);
+          aplicarVistaGrupos();
+        });
+      });
+
+      var tabs = document.querySelectorAll('.tab');
+      for (var i = 0; i < tabs.length; i++) {
+        tabs[i].addEventListener('click', function () { mostrar(this.getAttribute('data-vista')); });
+      }
+
+      setFecha('');
+      renderTop([]);
+      renderUltimos([]);
+      focoMonto();
+      cargarDatos();
+    })();
+  </script>
+</body>
+</html>
