@@ -1,26 +1,28 @@
-/* Service worker: deja la app lista aunque no haya señal y la actualiza sola al abrirla.
-   Para publicar una versión nueva, cambiá VERSION (acá y en app.js). */
-var VERSION = '1.0.0';
+/* Service worker: la app se abre al instante desde lo guardado en el celular, aunque no haya señal
+   o los datos estén flojos. No espera a la red.
+   Para publicar una versión nueva, cambiá VERSION acá y en app.js: el celular baja todo de nuevo
+   y avisa "Hay una versión nueva". */
+var VERSION = '1.1.0';
 var CACHE = 'gastos-' + VERSION;
-var ARCHIVOS = [
-  './',
-  'index.html',
-  'estilos.css',
-  'api.js',
-  'app.js',
-  'manifest.webmanifest',
-  'icons/icono.svg',
-  'icons/icon-192.png',
-  'icons/icon-512.png',
-  'icons/apple-touch-icon.png'
-];
+// Sin estos archivos la app no anda: si alguno falla, la instalación se cancela y se reintenta después
+var ESENCIALES = ['./', 'index.html', 'estilos.css', 'api.js', 'app.js', 'manifest.webmanifest'];
+// Íconos: si alguno falla no pasa nada
+var EXTRAS = ['icons/icono.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png'];
+
+function bajar(cache, archivo) {
+  // no-cache: pide siempre la última versión a GitHub, no una copia vieja del navegador
+  return fetch(archivo, { cache: 'no-cache' }).then(function (r) {
+    if (!r.ok) throw new Error('No se pudo bajar ' + archivo);
+    return cache.put(archivo, r);
+  });
+}
 
 self.addEventListener('install', function (e) {
   e.waitUntil(
     caches.open(CACHE).then(function (c) {
-      return Promise.all(ARCHIVOS.map(function (a) {
-        return fetch(a, { cache: 'no-cache' }).then(function (r) { if (r.ok) return c.put(a, r); }).catch(function () {});
-      }));
+      var esenciales = Promise.all(ESENCIALES.map(function (a) { return bajar(c, a); }));
+      var extras = Promise.all(EXTRAS.map(function (a) { return bajar(c, a).catch(function () {}); }));
+      return Promise.all([esenciales, extras]);
     }).then(function () { return self.skipWaiting(); })
   );
 });
@@ -33,7 +35,7 @@ self.addEventListener('activate', function (e) {
   );
 });
 
-// Primero la red (siempre la versión más nueva); si no hay señal, lo guardado.
+// Primero lo guardado (rápido, sin red); si algo no está, se pide a la red.
 // Solo archivos de la propia app: los pedidos a la planilla (POST a otro dominio) no se tocan.
 self.addEventListener('fetch', function (e) {
   var req = e.request;
@@ -42,15 +44,13 @@ self.addEventListener('fetch', function (e) {
   if (url.origin !== self.location.origin) return;
 
   e.respondWith(
-    fetch(req, { cache: 'no-cache' }).then(function (r) {
-      if (r && r.ok) {
-        var copia = r.clone();
-        caches.open(CACHE).then(function (c) { c.put(req, copia); });
-      }
-      return r;
-    }).catch(function () {
-      return caches.match(req).then(function (hit) {
-        return hit || (req.mode === 'navigate' ? caches.match('index.html') : Response.error());
+    caches.open(CACHE).then(function (c) {
+      // ignoreSearch: "?sinsw" u otros parámetros no deben impedir encontrar la página guardada
+      return c.match(req, { ignoreSearch: true }).then(function (hit) {
+        if (hit) return hit;
+        return fetch(req).catch(function () {
+          return req.mode === 'navigate' ? c.match('index.html') : Response.error();
+        });
       });
     })
   );

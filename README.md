@@ -78,6 +78,6 @@ Los celulares se actualizan solos al abrir la app: aparece un cartel "Hay una ve
 
 Los cambios en `Codigo.gs` se pegan en Apps Script y se publican con **Implementar → Administrar implementaciones → editar → Nueva versión**.
 
-## Pendiente (etapa 2)
+## Sin señal
 
-- Cargar gastos sin señal y que se envíen solos al volver la conexión. Hoy, sin señal, la app abre con lo último que vio, pero para guardar necesita conexión.
+La app abre siempre, aunque los datos estén flojos. Si al guardar un gasto no hay señal (o tarda más de 12 segundos), el gasto queda guardado en el celular: arriba aparece "N sin enviar". Se envía solo cuando la app se abre o vuelve la conexión, y desde esa pastilla se puede ver la lista, enviar ahora o borrar. Editar, borrar y omitir fijos sí necesitan conexión.

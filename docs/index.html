@@ -14,6 +14,7 @@
   <header class="cabecera">
     <span id="tituloVista" class="etiqueta">Nuevo gasto</span>
     <div class="cabecera-der">
+      <button id="btnCola" type="button" class="persona cola oculto" aria-label="Gastos sin enviar"><span id="colaTxt">0 sin enviar</span></button>
       <button id="btnPersona" type="button" class="persona oculto" aria-label="Cambiar persona"><span id="personaTxt">Quién</span></button>
       <button id="btnSync" type="button" class="redondo" aria-label="Sincronizar"><span data-icono="refrescar"></span></button>
     </div>
@@ -77,6 +78,7 @@
           <button id="mesSig" type="button" class="flecha" aria-label="Mes siguiente" disabled><span data-icono="derecha"></span></button>
         </div>
         <div id="total" class="total">$ 0</div>
+        <button id="colaResumen" type="button" class="cola-resumen oculto"></button>
         <div id="comparacion" class="comparacion oculto"></div>
         <button id="btnAgregarMes" type="button" class="pill suave oculto">+ Agregar gasto</button>
       </div>
@@ -139,6 +141,17 @@
       <button id="btnCerrarTodos" type="button" class="flecha" aria-label="Cerrar"><span data-icono="cerrar"></span></button>
     </div>
     <div class="card"><ul id="listaTodos" class="lista"></ul></div>
+  </div>
+
+  <!-- Gastos que todavía no se enviaron a la planilla -->
+  <div id="panelCola" class="pantalla oculto">
+    <div class="pantalla-cab">
+      <span class="etiqueta">Sin enviar</span>
+      <button id="btnCerrarCola" type="button" class="flecha" aria-label="Cerrar"><span data-icono="cerrar"></span></button>
+    </div>
+    <p id="colaAyuda" class="texto-suave cola-ayuda"></p>
+    <div class="card"><ul id="listaCola" class="lista"></ul></div>
+    <button id="btnEnviarCola" type="button" class="pill primario ancho-cola">Enviar ahora</button>
   </div>
 
   <!-- Editar o borrar un gasto -->

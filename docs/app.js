@@ -1,5 +1,5 @@
 /* Gastos – app instalable. Habla con la planilla a través de Api (api.js). */
-var VERSION = '1.0.0';
+var VERSION = '1.1.0';
 
 var ACENTO = '#A3E635';
 var COLOR_BARRA = '#A1A1AA';
@@ -12,6 +12,9 @@ var CLAVE_CAT = 'gastos.ultimaCategoria';
 var CLAVE_PER = 'gastos.persona';
 var CLAVE_VISTA_GRUPOS = 'gastos.vistaGrupos';
 var CLAVE_CACHE = 'gastos.cache';
+var CLAVE_COLA = 'gastos.cola';          // Gastos guardados en el celular que todavía no llegaron a la planilla
+var TIEMPO_GUARDAR_MS = 12000;           // Si guardar tarda más, el gasto queda en la cola y se reintenta solo
+var MS_REINTENTO = 30000;                // Cada cuánto se reintenta la cola mientras la app está abierta
 
 var SEG_DESHACER = 8;
 var MAX_SUG_VISIBLES = 3;
@@ -44,7 +47,7 @@ var estado = {
   grupoVisto: null,     // grupo cuyas categorías se muestran en Cargar
   vistaGrupos: leerLS(CLAVE_VISTA_GRUPOS) === 'categorias' ? 'categorias' : 'grupos',
   monto: '',            // lo tipeado en el teclado propio: dígitos y, si hay, una coma
-  guardando: false, deshaciendo: false, pendiente: null, vista: 'cargar',
+  deshaciendo: false, cargado: false, vista: 'cargar',
   fecha: '',            // '' = hoy; si no, 'aaaa-mm-dd' elegido en el campo de fecha
   mesVisto: null,       // resumen que se está mostrando en la pestaña Resumen
   resumenActual: null,  // resumen del mes en curso
@@ -152,7 +155,7 @@ function avisar(msg, tipo) {
 }
 
 function hayPantalla() {
-  return ['selector', 'configuracion', 'panelTodos', 'fondoEdicion'].some(function (id) {
+  return ['selector', 'configuracion', 'panelTodos', 'panelCola', 'fondoEdicion'].some(function (id) {
     return !byId(id).classList.contains('oculto');
   });
 }
@@ -315,7 +318,7 @@ function renderChips() {
   cont.innerHTML = '';
   if (!estado.categorias.length) {
     byId('selectorGrupo').classList.add('oculto');
-    cont.appendChild(el('div', 'etiqueta', 'Agregá categorías en la hoja Config'));
+    cont.appendChild(el('div', 'etiqueta', estado.cargado ? 'Agregá categorías en la hoja Config' : 'Cargando categorías…'));
     return;
   }
   var grupos = gruposParaMostrar();
@@ -930,6 +933,7 @@ function leerCache() {
 }
 /** Pinta los datos de la planilla (frescos o los últimos guardados en el celular). */
 function aplicarDatos(d, desdeCache) {
+  estado.cargado = true;
   estado.categorias = (d && d.categorias) || [];
   estado.grupos = (d && d.grupos) || [];
   estado.personas = (d && d.personas) || [];
@@ -969,8 +973,13 @@ function estadoBoton(texto, clase, volverEn) {
     timerBoton = setTimeout(function () { estadoBoton('Guardar', ''); }, volverEn);
   }
 }
+/**
+ * Guardar siempre pasa por la cola: el gasto se anota primero en el celular (así no se pierde aunque
+ * se cierre la app o no haya señal) y después se envía. Si el envío falla por falta de señal,
+ * queda en la cola y se reintenta solo.
+ */
 function guardar() {
-  if (estado.guardando || estado.deshaciendo) return;
+  if (estado.deshaciendo) return;
   var inDetalle = byId('detalle');
   var monto = montoNumero();
 
@@ -978,16 +987,25 @@ function guardar() {
   if (!estado.categoria) { estadoBoton('Elegí una categoría', 'error', 1500); return; }
   if (estado.personas.length && !estado.persona) { abrirSelector(); return; }
 
-  // Si es el reintento de un envío que falló, se reusa el mismo ID para que no se duplique
-  var firma = monto + '|' + inDetalle.value.trim() + '|' + estado.categoria + '|' + (estado.persona || '') + '|' + estado.fecha;
-  var id = (estado.pendiente && estado.pendiente.firma === firma) ? estado.pendiente.id : generarId();
-  estado.pendiente = { id: id, firma: firma };
-
   var previo = { monto: estado.monto, detalle: inDetalle.value, categoria: estado.categoria, fecha: estado.fecha };
-  var gasto = { id: id, monto: monto, detalle: inDetalle.value, categoria: estado.categoria, quien: estado.persona || '', fecha: estado.fecha };
+  var item = {
+    id: generarId(),
+    monto: monto,
+    detalle: inDetalle.value,
+    categoria: estado.categoria,
+    quien: estado.persona || '',
+    // Fecha explícita: si el envío se demora hasta mañana, el gasto igual queda en el día en que se cargó
+    fecha: estado.fecha || hoyISO(),
+    u: Api.url(),
+    creado: Date.now(),
+    intentos: 0
+  };
 
   ocultarDeshacer();
-  estado.guardando = true;
+  cola.push(item);
+  guardarCola();
+  reciente = { id: item.id, previo: previo };
+
   estadoBoton('Guardando…', 'cargando');
   estado.monto = '';
   pintarMonto();
@@ -995,23 +1013,180 @@ function guardar() {
   setFecha('');
   ocultarSugerencias();
 
-  Api.llamar('guardar', { gasto: gasto }).then(function (res) {
-    estado.guardando = false;
-    estado.pendiente = null;
-    var texto = res && res.duplicado ? '✓ Ya estaba guardado'
-      : (previo.fecha ? '✓ Guardado el ' + fechaCorta(previo.fecha) : '✓ Guardado ' + dinero(monto));
-    estadoBoton(texto, '', 1400);
-    actualizarResumenes(res && res.resumen);
-    mostrarResumen(res && res.resumen);
-    mostrarDeshacer(id, previo);
+  renderCola();
+  enviarCola();
+}
+
+/* ---------- Cola de gastos sin enviar ---------- */
+var cola = leerCola();
+var enviandoId = null;   // ID del gasto que se está enviando en este momento
+var reciente = null;     // { id, previo } del último gasto cargado a mano, para avisar cómo le fue
+var enviadosEnRonda = 0; // Cuántos gastos viejos se enviaron en esta tanda, para un solo aviso
+
+function leerCola() {
+  try {
+    var s = localStorage.getItem(CLAVE_COLA);
+    var lista = s ? JSON.parse(s) : [];
+    return Array.isArray(lista) ? lista : [];
+  } catch (e) {
+    return [];
+  }
+}
+function guardarCola() {
+  try { localStorage.setItem(CLAVE_COLA, JSON.stringify(cola)); } catch (e) {}
+}
+function enCola(id) {
+  return cola.some(function (i) { return i.id === id; });
+}
+function quitarDeCola(id) {
+  cola = cola.filter(function (i) { return i.id !== id; });
+  if (reciente && reciente.id === id) reciente = null;
+  guardarCola();
+  renderCola();
+}
+/** Falta de señal o respuesta rara de Google: no es culpa del gasto, se reintenta más tarde. */
+function esFalloDeRed(err) {
+  if (!err) return false;
+  if (err.sinConexion || err.name === 'TypeError' || err.name === 'AbortError') return true;
+  if (err.codigo === 'respuesta') return true;
+  return String(err.message || '').indexOf('La hoja está ocupada') > -1;
+}
+/** Manda los gastos de la cola de a uno, en orden. Se frena en el primer fallo de señal. */
+function enviarCola() {
+  if (enviandoId || !Api.configurado()) return;
+  var item = null;
+  for (var i = 0; i < cola.length; i++) {
+    if (!cola[i].error && cola[i].u === Api.url()) { item = cola[i]; break; }
+  }
+  if (!item) {
+    if (enviadosEnRonda > 0) {
+      avisar('✓ ' + enviadosEnRonda + (enviadosEnRonda === 1 ? ' gasto enviado' : ' gastos enviados'), 'ok');
+      enviadosEnRonda = 0;
+    }
+    renderCola();
+    return;
+  }
+  // Con el modo avión no hace falta ni intentarlo
+  if (navigator.onLine === false) { avisarSinSenal(); renderCola(); return; }
+
+  enviandoId = item.id;
+  renderCola();
+  var gasto = { id: item.id, monto: item.monto, detalle: item.detalle, categoria: item.categoria, quien: item.quien, fecha: item.fecha };
+
+  Api.llamar('guardar', { gasto: gasto }, TIEMPO_GUARDAR_MS).then(function (res) {
+    enviandoId = null;
+    envioListo(item, res); // antes de sacarlo de la cola: necesita saber si era el último gasto cargado
+    quitarDeCola(item.id);
+    enviarCola();
   }, function (err) {
-    estado.guardando = false;
-    if (!estado.monto) { estado.monto = previo.monto; pintarMonto(); }
-    if (!inDetalle.value) inDetalle.value = previo.detalle;
-    if (!estado.fecha) setFecha(previo.fecha);
-    estadoBoton(textoError(err, 'No se pudo guardar · reintentá'), 'error', MS_ERROR);
-    vibrar();
+    enviandoId = null;
+    item.intentos = (item.intentos || 0) + 1;
+    if (err && err.codigo === 'clave') {
+      // La app ya pidió el código nuevo: la cola espera
+      guardarCola(); avisarSinSenal(); renderCola();
+    } else if (esFalloDeRed(err)) {
+      guardarCola(); avisarSinSenal(); renderCola();
+    } else {
+      // La planilla rechazó este gasto: queda en la lista con el motivo y se sigue con los demás
+      item.error = textoError(err, 'La planilla no lo aceptó');
+      guardarCola();
+      renderCola();
+      envioRechazado(item);
+      enviarCola();
+    }
   });
+}
+function envioListo(item, res) {
+  actualizarResumenes(res && res.resumen);
+  var v = estado.mesVisto;
+  if (reciente && reciente.id === item.id) {
+    var previo = reciente.previo;
+    reciente = null;
+    mostrarResumen(res && res.resumen);
+    estadoBoton(previo.fecha ? '✓ Guardado el ' + fechaCorta(previo.fecha) : '✓ Guardado ' + dinero(item.monto), '', 1400);
+    mostrarDeshacer(item.id, previo);
+  } else {
+    enviadosEnRonda++;
+    if (!v || v.esActual) mostrarResumen(res && res.resumen);
+  }
+}
+/** El último gasto cargado quedó en la cola por falta de señal: se avisa y se puede deshacer al instante. */
+function avisarSinSenal() {
+  if (!reciente || !enCola(reciente.id)) return;
+  var previo = reciente.previo;
+  var id = reciente.id;
+  reciente = null;
+  estadoBoton('Guardado sin señal · se envía solo', '', 2800);
+  mostrarDeshacer(id, previo);
+}
+function envioRechazado(item) {
+  if (reciente && reciente.id === item.id) {
+    reciente = null;
+    estadoBoton(item.error, 'error', MS_ERROR);
+  } else {
+    avisar('Un gasto no se pudo enviar: ' + item.error);
+  }
+  vibrar();
+}
+
+function totalCola() {
+  return cola.reduce(function (s, i) { return s + (i.monto || 0); }, 0);
+}
+/** Pastilla de arriba, línea del Resumen y, si está abierta, la lista. */
+function renderCola() {
+  var n = cola.length;
+  byId('btnCola').classList.toggle('oculto', n === 0);
+  byId('colaTxt').textContent = n + (enviandoId ? ' enviando…' : ' sin enviar');
+  var r = byId('colaResumen');
+  r.classList.toggle('oculto', n === 0);
+  if (n) r.textContent = 'Sin enviar · ' + dinero(totalCola()) + ' (' + n + (n === 1 ? ' gasto' : ' gastos') + ')';
+  if (!byId('panelCola').classList.contains('oculto')) renderPanelCola();
+}
+function renderPanelCola() {
+  var ul = byId('listaCola');
+  ul.innerHTML = '';
+  if (!cola.length) ul.appendChild(el('li', 'vacio', 'No hay gastos sin enviar'));
+  cola.forEach(function (i) {
+    var li = el('li');
+    var izq = el('div', 'izq');
+    izq.appendChild(el('div', 'det', i.detalle || i.categoria));
+    izq.appendChild(el('div', 'sub etiqueta', fechaCorta(i.fecha) + ' · ' + i.categoria + (i.quien ? ' · ' + i.quien : '')));
+    if (i.error) izq.appendChild(el('div', 'cola-error', i.error));
+    else if (i.u !== Api.url()) izq.appendChild(el('div', 'cola-error', 'Es de otra conexión: no se envía'));
+    else if (i.id === enviandoId) izq.appendChild(el('div', 'sub etiqueta', 'Enviando…'));
+    li.appendChild(izq);
+    li.appendChild(el('div', 'monto-fila', dinero(i.monto)));
+    li.appendChild(botonBorrarCola(i));
+    ul.appendChild(li);
+  });
+  byId('colaAyuda').textContent = 'Estos gastos están guardados en este celular y se envían solos cuando hay señal.';
+  var hayParaEnviar = cola.some(function (i) { return !i.error && i.u === Api.url(); });
+  byId('btnEnviarCola').disabled = !hayParaEnviar || !!enviandoId;
+}
+/** Primer toque: pide confirmación. Segundo toque: borra el gasto de la cola. */
+function botonBorrarCola(item) {
+  var b = el('button', 'btn-cola', 'Borrar');
+  b.type = 'button';
+  var timer = null;
+  b.addEventListener('click', function () {
+    if (item.id === enviandoId) { avisar('Se está enviando: esperá un momento'); return; }
+    if (!b.classList.contains('confirmar')) {
+      b.classList.add('confirmar');
+      b.textContent = '¿Seguro?';
+      timer = setTimeout(function () { b.classList.remove('confirmar'); b.textContent = 'Borrar'; }, MS_ERROR);
+      return;
+    }
+    clearTimeout(timer);
+    quitarDeCola(item.id);
+  });
+  return b;
+}
+function abrirCola() {
+  byId('panelCola').classList.remove('oculto');
+  renderPanelCola();
+}
+function cerrarCola() {
+  byId('panelCola').classList.add('oculto');
 }
 
 /* ---------- Deshacer (solo lo guardado desde este celular) ---------- */
@@ -1036,11 +1211,29 @@ function ocultarDeshacer() {
   b.classList.remove('error');
   b.classList.add('oculto');
 }
+/** Devuelve lo que se había tipeado al formulario, si no se empezó a cargar otro gasto. */
+function devolverAlFormulario(previo) {
+  if (estado.monto) return;
+  estado.monto = previo.monto;
+  pintarMonto();
+  byId('detalle').value = previo.detalle;
+  setFecha(previo.fecha);
+  elegirCategoria(previo.categoria);
+}
 function deshacer() {
-  if (!ultimoGuardado || estado.guardando || estado.deshaciendo) return;
+  if (!ultimoGuardado || estado.deshaciendo) return;
   var d = ultimoGuardado;
   clearInterval(d.intervalo);
   ultimoGuardado = null;
+
+  // Si el gasto todavía está en la cola (no llegó a la planilla), alcanza con sacarlo de ahí
+  if (enviandoId !== d.id && enCola(d.id)) {
+    quitarDeCola(d.id);
+    byId('btnDeshacer').classList.add('oculto');
+    estadoBoton('Gasto deshecho', '', 1400);
+    devolverAlFormulario(d.previo);
+    return;
+  }
   estado.deshaciendo = true;
 
   var b = byId('btnDeshacer');
@@ -1053,14 +1246,8 @@ function deshacer() {
     estadoBoton('Gasto deshecho', '', 1400);
     actualizarResumenes(res && res.resumen);
     mostrarResumen(res && res.resumen);
-    // Devuelve los datos al formulario para corregirlos, si no se empezó a cargar otro
-    if (!estado.monto) {
-      estado.monto = d.previo.monto;
-      pintarMonto();
-      byId('detalle').value = d.previo.detalle;
-      setFecha(d.previo.fecha);
-      elegirCategoria(d.previo.categoria);
-    }
+    // Devuelve los datos al formulario para corregirlos
+    devolverAlFormulario(d.previo);
   }, function (err) {
     estado.deshaciendo = false;
     // El botón no desaparece: avisa que falló y el motivo va en el botón Guardar
@@ -1124,6 +1311,7 @@ function conectar() {
     Api.guardar(cfg);
     cerrarConfiguracion();
     cargarDatos();
+    enviarCola();
   }, function (err) {
     btn.disabled = false;
     btn.textContent = 'Conectar';
@@ -1160,7 +1348,9 @@ function arranque() {
   // Primero lo último que se vio (abre al instante), después lo fresco
   var guardado = leerCache();
   if (guardado) aplicarDatos(guardado, true);
-  cargarDatos();
+  // Con datos guardados, la sincronización es silenciosa: si no hay señal no molesta
+  cargarDatos(!!guardado);
+  enviarCola();
 }
 
 (function init() {
@@ -1237,12 +1427,23 @@ function arranque() {
 
   // Al volver a abrir la app desde el fondo, se refrescan los datos si pasó un rato
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && Api.configurado() && Date.now() - estado.ultimaSync > MS_RESYNC && !estado.guardando) cargarDatos(true);
+    if (document.hidden || !Api.configurado()) return;
+    enviarCola();
+    if (Date.now() - estado.ultimaSync > MS_RESYNC) cargarDatos(true);
   });
+
+  // Gastos sin enviar: se reintentan al volver la señal y cada tanto mientras la app está abierta
+  window.addEventListener('online', enviarCola);
+  setInterval(function () { if (cola.length && !document.hidden) enviarCola(); }, MS_REINTENTO);
+  byId('btnCola').addEventListener('click', abrirCola);
+  byId('colaResumen').addEventListener('click', abrirCola);
+  byId('btnCerrarCola').addEventListener('click', cerrarCola);
+  byId('btnEnviarCola').addEventListener('click', enviarCola);
 
   setFecha('');
   renderTop([]);
   renderUltimos([]);
+  renderCola();
   registrarServiceWorker();
   arranque();
 })();

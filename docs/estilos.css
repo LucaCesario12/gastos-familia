@@ -371,6 +371,16 @@ h1 { margin: 0; }
 .fila-editable { cursor: pointer; }
 .fila-ajena .det, .fila-ajena .monto-fila { color: var(--suave); }
 
+/* ---------- Gastos sin enviar (cola) ---------- */
+.persona.cola { margin-right: 8px; color: var(--sobre-acento); background: var(--acento); letter-spacing: 0.06em; }
+.cola-resumen { display: block; margin: 8px auto 0; padding: 6px 14px; min-height: 32px; border-radius: 9999px; background: var(--sup); color: var(--suave); font-size: 13px; }
+.cola-ayuda { font-size: 14px; margin: 8px 2px 12px; }
+.ancho-cola { width: 100%; flex: none; margin-top: 16px; }
+.ancho-cola:disabled { opacity: 0.5; }
+.lista .cola-error { color: var(--rojo); font-size: 13px; margin-top: 4px; }
+.lista .btn-cola { flex: none; min-height: 40px; padding: 0 14px; border-radius: 12px; background: var(--sup2); color: var(--rojo); font-size: 14px; }
+.lista .btn-cola.confirmar { background: var(--rojo); color: var(--sobre-acento); }
+
 /* ---------- Pantallas completas y panel de edición ---------- */
 .pantalla {
   position: fixed;

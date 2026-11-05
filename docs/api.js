@@ -1,7 +1,7 @@
 /* Conexión con la planilla: manda pedidos a la implementación de Apps Script y guarda la configuración del celular. */
 var Api = (function () {
   var CLAVE_CONEXION = 'gastos.conexion';
-  var TIEMPO_MAX_MS = 30000;
+  var TIEMPO_MAX_MS = 20000; // Con datos flojos es mejor rendirse rápido que dejar la app colgada
   var conexion = null;
   var api = { onClaveInvalida: null };
 
@@ -14,6 +14,11 @@ var Api = (function () {
 
   api.configurado = function () {
     return !!(conexion && conexion.u && conexion.k);
+  };
+
+  /** Dirección de la planilla a la que está conectado este celular ('' si no está conectado). */
+  api.url = function () {
+    return conexion && conexion.u ? conexion.u : '';
   };
 
   api.guardar = function (c) {
@@ -45,12 +50,12 @@ var Api = (function () {
    * Hace un pedido a la implementación indicada. Resuelve con los datos o rechaza con un Error
    * que puede traer: sinConexion (no hubo respuesta) o codigo ('clave', 'respuesta', 'error'...).
    */
-  api.llamarCon = function (c, accion, datos) {
+  api.llamarCon = function (c, accion, datos, tiempoMs) {
     var cuerpo = { k: c.k, accion: accion };
     if (datos) Object.keys(datos).forEach(function (n) { cuerpo[n] = datos[n]; });
 
     var control = typeof AbortController === 'function' ? new AbortController() : null;
-    var reloj = control ? setTimeout(function () { control.abort(); }, TIEMPO_MAX_MS) : null;
+    var reloj = control ? setTimeout(function () { control.abort(); }, tiempoMs || TIEMPO_MAX_MS) : null;
 
     return fetch(c.u, {
       method: 'POST',
@@ -87,13 +92,13 @@ var Api = (function () {
     });
   };
 
-  api.llamar = function (accion, datos) {
+  api.llamar = function (accion, datos, tiempoMs) {
     if (!api.configurado()) {
       var e = new Error('Falta conectar la app');
       e.codigo = 'clave';
       return Promise.reject(e);
     }
-    return api.llamarCon(conexion, accion, datos);
+    return api.llamarCon(conexion, accion, datos, tiempoMs);
   };
 
   return api;
