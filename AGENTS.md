@@ -31,6 +31,8 @@ App instalable (PWA) para cargar y ver los gastos de la familia. La base de dato
 ## Seguridad y publicación
 - El repositorio es **público**. Nada de claves, códigos `GASTOS1.…` ni la URL real de la implementación. En el repo, `URL_IMPLEMENTACION` de `Codigo.gs` queda vacía.
 - La clave de la familia vive en las propiedades del script (`CLAVE_FAMILIA`), nunca en el código.
+- `docs/index.html` tiene una política de contenido (CSP) que solo permite scripts y estilos propios y conexiones a `script.google.com` y `script.googleusercontent.com`. Nada de scripts ni estilos en línea (`style="..."`, `onclick="..."`) ni de dominios nuevos sin actualizarla y probarla.
+- Todo texto que llegue de la app y se guarde en la planilla pasa por `textoSeguro_` (evita fórmulas). Las funciones que muestran o cambian la clave llaman a `soloDueno_()`.
 - Para publicar un cambio en `docs/`: subir `VERSION` en `sw.js` y en `app.js`, commit y push a `main`. Los celulares se actualizan solos y muestran el cartel "Hay una versión nueva".
 - `Codigo.gs` lo pega el usuario en Apps Script (Ctrl+A y pegar) y publica una nueva versión de la implementación. Entrégalo siempre completo.
 

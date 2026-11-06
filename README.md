@@ -68,6 +68,16 @@ Después de conectar, cada persona elige **¿Quién sos?** una sola vez (se pued
 
 Para apagar la pantalla vieja: en Apps Script → Configuración del proyecto → Propiedades de la secuencia de comandos → agregá `UI_VIEJA` = `no`. La dirección vieja pasa a mostrar un cartel y la app nueva no se afecta.
 
+## Seguridad
+
+- **Verificación en dos pasos** en la cuenta de Google dueña de la planilla y en la cuenta de GitHub. Es lo que más protege: quien entre a una de las dos controla la planilla o la app.
+- **Se perdió o se regaló un celular:** en ese celular, "¿Quién sos?" → **Desconectar este celular**. Si no lo tenés a mano, en Apps Script ejecutá `renovarClaveFamilia`, copiá el código nuevo del registro y repartilo: los celulares con la clave vieja dejan de funcionar hasta que lo peguen.
+- **El código de la familia es como una contraseña.** Después de instalar la app, borrá el mensaje de WhatsApp que lo tiene.
+- **Funciones de la clave:** `crearCodigoFamilia` y `renovarClaveFamilia` solo las puede ejecutar el dueño del script desde el editor. Si aparece "Solo el dueño del script puede hacer esto", revisá que estés en el editor con la cuenta dueña.
+- **Pantalla vieja:** cuando toda la familia use la app nueva, agregá la propiedad `UI_VIEJA` = `no` y archivá las implementaciones viejas en **Implementar → Administrar implementaciones**. Mientras esté abierta, quien tenga el link viejo opera la planilla sin clave.
+- **Textos con `=`, `+`, `-` o `@` al principio** se guardan como texto común, no como fórmula.
+- **Política de contenido:** `docs/index.html` solo permite el código de la propia app y las llamadas a `script.google.com`. Si algún día se agrega otro servicio o un script en línea, hay que actualizar esa política.
+
 ## Hacer cambios a la app
 
 Los celulares se actualizan solos al abrir la app: aparece un cartel "Hay una versión nueva" con un botón *Actualizar*. Para que el cambio se note:

@@ -1,5 +1,5 @@
 /* Gastos – app instalable. Habla con la planilla a través de Api (api.js). */
-var VERSION = '1.1.0';
+var VERSION = '1.1.1';
 
 var ACENTO = '#A3E635';
 var COLOR_BARRA = '#A1A1AA';
@@ -1321,6 +1321,20 @@ function conectar() {
   });
 }
 
+/** Borra la conexión y los datos de este celular (por ejemplo, antes de regalarlo o cambiarlo). */
+function desconectar() {
+  var n = cola.length;
+  var aviso = n
+    ? 'Hay ' + n + (n === 1 ? ' gasto' : ' gastos') + ' sin enviar que se van a perder. ¿Desconectar igual?'
+    : '¿Desconectar este celular? Vas a necesitar el código de la familia para volver a entrar.';
+  if (!window.confirm(aviso)) return;
+  Api.borrar();
+  [CLAVE_CACHE, CLAVE_COLA, CLAVE_PER, CLAVE_CAT, CLAVE_VISTA_GRUPOS].forEach(function (k) {
+    try { localStorage.removeItem(k); } catch (e) {}
+  });
+  location.reload();
+}
+
 /* ---------- Versión nueva (service worker) ---------- */
 function registrarServiceWorker() {
   if (!('serviceWorker' in navigator) || /[?&]sinsw\b/.test(location.search)) return;
@@ -1383,6 +1397,7 @@ function arranque() {
   byId('btnPersona').addEventListener('click', abrirSelector);
   byId('btnReconfigurar').addEventListener('click', function () { abrirConfiguracion(''); });
   byId('btnConectar').addEventListener('click', conectar);
+  byId('btnDesconectar').addEventListener('click', desconectar);
   byId('btnVolverConfig').addEventListener('click', cerrarConfiguracion);
 
   // Mientras se edita la fecha no se toca el campo: se aplica al salir

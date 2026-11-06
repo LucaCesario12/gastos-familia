@@ -2,7 +2,7 @@
    o los datos estén flojos. No espera a la red.
    Para publicar una versión nueva, cambiá VERSION acá y en app.js: el celular baja todo de nuevo
    y avisa "Hay una versión nueva". */
-var VERSION = '1.1.0';
+var VERSION = '1.1.1';
 var CACHE = 'gastos-' + VERSION;
 // Sin estos archivos la app no anda: si alguno falla, la instalación se cancela y se reintenta después
 var ESENCIALES = ['./', 'index.html', 'estilos.css', 'api.js', 'app.js', 'manifest.webmanifest'];

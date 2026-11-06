@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <!-- Política de contenido: solo corre el código de esta app y solo habla con Apps Script. Si agregás un dominio o un script en línea, hay que actualizarla acá. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src https://script.google.com https://script.googleusercontent.com; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
   <title>Gastos</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icono.svg" type="image/svg+xml">
@@ -183,10 +186,14 @@
       <div class="etiqueta">Este celular es de</div>
       <h1 class="titulo-grande">¿Quién sos?</h1>
       <div id="chipsPersonas"></div>
-      <p class="texto-suave" style="font-size: 14px; margin: 16px 0 0; text-align: center;">Lo podés cambiar después desde arriba</p>
+      <p class="texto-suave nota-selector">Lo podés cambiar después desde arriba</p>
       <div class="pie-selector">
         <span id="versionTxt" class="etiqueta"></span>
         <button id="btnReconfigurar" type="button" class="enlace">Cambiar conexión</button>
+      </div>
+      <div class="pie-selector">
+        <span></span>
+        <button id="btnDesconectar" type="button" class="enlace enlace-rojo">Desconectar este celular</button>
       </div>
     </div>
   </div>

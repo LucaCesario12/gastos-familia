@@ -90,6 +90,16 @@ function claveValida_(k) {
   return dif === 0;
 }
 
+/**
+ * Las funciones que muestran o cambian la clave solo las puede ejecutar el dueño del script desde el editor.
+ * Quien entra por la dirección de la web app (aunque conozca el link) no tiene sesión de dueño y se rechaza.
+ */
+function soloDueno_() {
+  var activo = Session.getActiveUser().getEmail();
+  var dueno = Session.getEffectiveUser().getEmail();
+  if (!activo || activo !== dueno) throw new Error('Solo el dueño del script puede hacer esto');
+}
+
 function nuevaClave_() {
   return (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
 }
@@ -99,6 +109,7 @@ function nuevaClave_() {
  * Crea la clave de la familia (si no existe) y muestra en el registro el código para configurar cada celular.
  */
 function crearCodigoFamilia() {
+  soloDueno_();
   var props = PropertiesService.getScriptProperties();
   var clave = props.getProperty(PROP_CLAVE);
   if (!clave) {
@@ -121,6 +132,7 @@ function crearCodigoFamilia() {
 
 /** Cambia la clave: los celulares ya configurados dejan de funcionar hasta que se les cargue el código nuevo. */
 function renovarClaveFamilia() {
+  soloDueno_();
   PropertiesService.getScriptProperties().setProperty(PROP_CLAVE, nuevaClave_());
   return crearCodigoFamilia();
 }
@@ -157,11 +169,11 @@ function guardarGasto(gasto) {
   var monto = parsearMonto_(gasto.monto);
   if (!(monto > 0)) throw new Error('Monto inválido');
 
-  var categoria = String(gasto.categoria || '').trim();
+  var categoria = textoSeguro_(String(gasto.categoria || '').trim().slice(0, 60));
   if (!categoria) throw new Error('Elegí una categoría');
 
-  var detalle = String(gasto.detalle || '').trim().slice(0, 200);
-  var quien = String(gasto.quien || '').trim().slice(0, 60);
+  var detalle = textoSeguro_(String(gasto.detalle || '').trim().slice(0, 200));
+  var quien = textoSeguro_(String(gasto.quien || '').trim().slice(0, 60));
   var id = normalizarId_(gasto.id) || Utilities.getUuid();
   var fecha = fechaDelGasto_(gasto.fecha);
 
@@ -228,9 +240,9 @@ function editarGasto(cambio) {
   if (!id) throw new Error('Ese gasto no se puede editar');
   var monto = parsearMonto_(cambio.monto);
   if (!(monto > 0)) throw new Error('Monto inválido');
-  var categoria = String(cambio.categoria || '').trim();
+  var categoria = textoSeguro_(String(cambio.categoria || '').trim().slice(0, 60));
   if (!categoria) throw new Error('Elegí una categoría');
-  var detalle = String(cambio.detalle || '').trim().slice(0, 200);
+  var detalle = textoSeguro_(String(cambio.detalle || '').trim().slice(0, 200));
 
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) throw new Error('La hoja está ocupada, reintentá');
@@ -848,6 +860,15 @@ function buscarFilaPorId_(hoja, id) {
 /** Minúsculas y sin tildes, para comparar detalles ("Café" = "cafe"). */
 function normalizarTexto_(s) {
   return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+/**
+ * Un texto que empieza con = + - o @ lo toma Sheets como fórmula (y puede leer o mandar datos de la planilla).
+ * Con un apóstrofe adelante se guarda como texto común; al leerlo, el apóstrofe no aparece.
+ */
+function textoSeguro_(s) {
+  s = String(s == null ? '' : s);
+  return /^[=+\-@]/.test(s) ? "'" + s : s;
 }
 
 function normalizarId_(v) {

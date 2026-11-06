@@ -3,7 +3,7 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
 aporte.
 
 ## Estado actual
-- v1.1.0 (cola sin conexión) en `docs/`, publicada en GitHub Pages (repo `gastos-familia`) y
+- v1.1.1 (seguridad opción A) sobre la v1.1.0 (cola sin conexión), en `docs/`, publicada en GitHub Pages (repo `gastos-familia`) y
   conectada a Apps Script mediante una implementación "Cualquier usuario" protegida por clave.
 - Pantallas: Cargar (teclado propio), Resumen, Editar gasto, ¿Quién sos?, conexión por código
   y lista "Sin enviar".
@@ -39,6 +39,12 @@ aporte.
 
 ## Próximos pasos
 - Confirmar en el celular del papá que abre y guarda con datos flojos (v1.1.0).
-- Cerrar temas de seguridad de la app (pedido por el usuario): plan pendiente.
+- Seguridad opción A hecha (elegida sobre la B: clave por celular con invitaciones, más trabajo):
+  `soloDueno_`, `textoSeguro_`, CSP en `index.html`, botón "Desconectar este celular".
+  Falta del lado del usuario: pegar el `Codigo.gs` nuevo y publicar versión, verificación en
+  dos pasos en Google y GitHub. Copia semanal automática de la planilla: ofrecida, sin decidir.
+- Pendiente probar en celular real que la CSP no bloquee la conexión a Apps Script
+  (`connect-src` de `script.google.com` y `script.googleusercontent.com`; la redirección de /exec
+  va a la segunda). Si no conecta tras la v1.1.1, revisar eso primero.
 - Cuando toda la familia migre: propiedad `UI_VIEJA` = `no` y archivar las implementaciones viejas.
 - Guía corta para pasar la app a otra familia.
